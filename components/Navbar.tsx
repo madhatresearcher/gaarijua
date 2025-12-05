@@ -1,9 +1,12 @@
 "use client"
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
+  const pathname = usePathname()
+  const hideOnHome = pathname === '/'
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
@@ -12,16 +15,16 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  if (hideOnHome) return null
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? 'bg-white/95 backdrop-blur shadow-md py-2'
-          : 'bg-transparent py-4'
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-white/95 backdrop-blur shadow-md py-2' : 'bg-transparent py-4'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4">
-        {/* ─── Expanded state (top of page) ─── */}
+        {/* expanded state shown at top */}
         <div
           className={`transition-all duration-300 overflow-hidden ${
             scrolled ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'
@@ -45,18 +48,16 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* ─── Collapsed / scrolled state ─── */}
+        {/* collapsed/floating state for scrolled header */}
         <div
           className={`flex items-center gap-4 transition-all duration-300 ${
             scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'
           }`}
         >
-          {/* Logo */}
           <Link href="/" className="text-xl font-black text-amber-600 tracking-tight shrink-0">
             Gaarijua
           </Link>
 
-          {/* Integrated search bar */}
           <form className="flex-1 flex items-center bg-stone-100 rounded-full border border-stone-200 hover:shadow-md transition-shadow overflow-hidden max-w-2xl">
             <select
               name="type"
@@ -84,12 +85,11 @@ export default function Navbar() {
             </button>
           </form>
 
-          {/* Right nav */}
           <nav className="flex items-center gap-4 shrink-0">
-            <Link href="/cars" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition hidden md:block">
+            <Link href="/cars" className="hidden md:block text-sm font-medium text-gray-600 hover:text-gray-900 transition">
               Cars
             </Link>
-            <Link href="/parts" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition hidden md:block">
+            <Link href="/parts" className="hidden md:block text-sm font-medium text-gray-600 hover:text-gray-900 transition">
               Parts
             </Link>
             <button className="px-4 py-2 text-sm font-semibold text-gray-700 bg-stone-100 hover:bg-stone-200 rounded-full transition">

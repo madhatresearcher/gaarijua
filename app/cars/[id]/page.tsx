@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabaseServer } from '../../../lib/supabase-server'
 
-export default async function CarDetail({ params }: { params: { id: string } }) {
-  const { id } = params
+export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
   // Try to find by slug first, then by id
   const { data: bySlug } = await supabaseServer.from('cars').select('*').eq('slug', id).maybeSingle()

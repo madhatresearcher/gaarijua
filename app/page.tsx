@@ -3,7 +3,7 @@ import { supabaseServer } from '../lib/supabase-server'
 import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
-import HeroHeader from '../components/HeroHeader'
+import HomeHeader from '../components/HomeHeader'
 
 export const revalidate = 60 // ISR: revalidate every 60 seconds
 
@@ -67,21 +67,26 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <HeroHeader />
+      <HomeHeader />
 
-      <div className="max-w-7xl mx-auto px-4 relative z-10 space-y-12">
-        <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
-          {categories.map((cat) => (
-            <Link
-              key={cat.name}
-              href={cat.href}
-              className="group flex flex-col items-center gap-3 p-5 bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-amber-400 hover:-translate-y-1"
-            >
-              <span className="text-3xl md:text-4xl group-hover:scale-110 transition-transform">{cat.icon}</span>
-              <span className="font-bold text-gray-800 text-sm">{cat.name}</span>
-            </Link>
-          ))}
-        </section>
+      <section className="relative z-20 -mt-10 mb-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex items-center gap-2 overflow-x-auto bg-white rounded-full shadow-lg border border-stone-200 px-3 py-2">
+            {categories.map((cat) => (
+              <Link
+                key={cat.name}
+                href={cat.href}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-gray-700 hover:text-amber-700 hover:bg-amber-50 transition whitespace-nowrap"
+              >
+                <span className="text-lg">{cat.icon}</span>
+                <span>{cat.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 relative z-10 space-y-12 pb-16">
 
         {promotedCars.length > 0 && (
           <section className="px-0">

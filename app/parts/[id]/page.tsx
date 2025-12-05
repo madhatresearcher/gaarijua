@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabaseServer } from '../../../lib/supabase-server'
 
-export default async function PartDetail({ params }: { params: { id: string } }) {
-  const { id } = params
+export default async function PartDetail({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
   const { data: bySlug } = await supabaseServer.from('parts').select('*').eq('slug', id).maybeSingle()
   let part = bySlug

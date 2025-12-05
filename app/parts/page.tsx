@@ -1,15 +1,17 @@
 import PartCard from '../../components/PartCard'
 import SearchBar from '../../components/SearchBar'
+import PartsList from '../../components/PartsList'
+import { supabaseServer } from '../../lib/supabase-server'
 
-const sampleParts = Array.from({ length: 12 }).map((_, i) => ({
-  id: String(i + 1),
-  title: `Part ${i + 1}`,
-  seller: 'Gaarijua Parts',
-  price: (20 + i * 5).toFixed(2),
-  thumbnail: '/placeholder-part.jpg'
-}))
+export default async function PartsPage() {
+  const { data: parts, error } = await supabaseServer
+    .from('parts')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
 
-export default function PartsPage() {
+  const initialParts = Array.isArray(parts) ? parts : []
+
   return (
     <div>
       <SearchBar />
@@ -21,10 +23,8 @@ export default function PartsPage() {
           <option>Price: High to Low</option>
         </select>
       </div>
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {sampleParts.map(p => (
-          <PartCard key={p.id} part={p} />
-        ))}
+      <div className="mt-6">
+        <PartsList initialParts={initialParts} />
       </div>
     </div>
   )

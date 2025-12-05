@@ -1,16 +1,18 @@
 import CarCard from '../../components/CarCard'
 import SearchBar from '../../components/SearchBar'
 import FiltersSidebar from '../../components/FiltersSidebar'
+import CarsList from '../../components/CarsList'
+import { supabaseServer } from '../../lib/supabase-server'
 
-const sampleCars = Array.from({ length: 8 }).map((_, i) => ({
-  id: String(i + 1),
-  title: `Sample Car ${i + 1}`,
-  location: 'Nairobi, KE',
-  pricePerDay: 45 + i * 5,
-  thumbnail: '/placeholder-car.jpg'
-}))
+export default async function CarsPage() {
+  const { data: cars, error } = await supabaseServer
+    .from('cars')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50)
 
-export default function CarsPage() {
+  const initialCars = Array.isArray(cars) ? cars : []
+
   return (
     <div className="flex gap-6">
       <aside className="w-72 hidden lg:block">
@@ -18,10 +20,8 @@ export default function CarsPage() {
       </aside>
       <div className="flex-1">
         <SearchBar />
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sampleCars.map(car => (
-            <CarCard key={car.id} car={car} />
-          ))}
+        <div className="mt-6">
+          <CarsList initialCars={initialCars} />
         </div>
       </div>
     </div>

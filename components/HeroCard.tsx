@@ -17,18 +17,19 @@ export default function HeroCard({ item, kind, promoted, views, sales }: Props) 
   const priceBuy = item.price_buy ?? item.price
 
   return (
-    <Link href={href} className="snap-start block min-w-[260px] max-w-sm bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
-      <div className="relative h-56 bg-gray-100 overflow-hidden">
+    <Link href={href} className="block min-w-[220px] max-w-xs bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition-shadow duration-200">
+      <div className="h-40 bg-gray-100 overflow-hidden">
         <img src={img} alt={title} className="w-full h-full object-cover" />
-        <div className="absolute left-3 bottom-3 bg-white/95 px-3 py-1 rounded-full text-sm font-semibold shadow">{pricePerDay ? `$${pricePerDay}/day` : priceBuy ? `$${priceBuy}` : ''}</div>
-        {promoted && <div className="absolute right-3 top-3 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs">Promoted</div>}
       </div>
       <div className="p-3">
-        <div className="text-sm text-slate-500 truncate">{kind === 'car' ? `${item.brand ?? ''} ${item.model ?? ''}` : `${item.brand ?? item.category ?? ''}`}</div>
-        <div className="mt-1 font-semibold text-slate-900 text-base leading-tight truncate">{title}</div>
-        <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-          <div>{views ? `${views} views` : sales ? `${sales} sold` : ''}</div>
-          <div className="text-slate-400">{item.year ?? ''}</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-slate-500">{kind === 'car' ? `${item.brand ?? ''} ${item.model ?? ''} ${item.year ?? ''}` : `${item.brand ?? item.category ?? ''}`}</div>
+          {promoted && <div className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Promoted</div>}
+        </div>
+        <div className="mt-1 font-semibold text-slate-900 truncate">{title}</div>
+        <div className="mt-2 text-sm text-slate-700">{pricePerDay ? `$${pricePerDay}/day` : priceBuy ? `$${priceBuy}` : ''}</div>
+        <div className="mt-2 text-xs text-slate-500">
+          {views ? `${views} views` : sales ? `${sales} sold` : null}
         </div>
       </div>
     </Link>

@@ -46,30 +46,22 @@ export default async function Home() {
   return (
     <main className="container mx-auto px-4 py-8">
       {/* Hero */}
-      <section className="mb-12">
-        <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-lg overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 items-center">
-            <div className="p-10 lg:p-16">
-              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">Find cars & parts — fast</h1>
-              <p className="mt-3 text-slate-600 max-w-lg">Rent or buy trusted vehicles and source quality spare parts from sellers across the region.</p>
-
-              <form className="mt-6 bg-white border rounded-full p-2 shadow-sm flex items-center gap-2">
-                <input placeholder="Search location or model" className="flex-1 px-4 py-3 rounded-full outline-none text-sm" />
-                <div className="hidden sm:flex items-center gap-2 px-3">
-                  <input type="date" className="text-sm px-3 py-2 rounded-lg border" />
-                </div>
-                <button className="ml-2 bg-amber-600 text-white px-4 py-2 rounded-full text-sm">Search</button>
-              </form>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a className="px-3 py-1 rounded-full bg-slate-50 border text-sm">Daily Rentals</a>
-                <a className="px-3 py-1 rounded-full bg-slate-50 border text-sm">Buy a Car</a>
-                <a className="px-3 py-1 rounded-full bg-slate-50 border text-sm">Spare Parts</a>
-                <a className="px-3 py-1 rounded-full bg-slate-50 border text-sm">Promotions</a>
-              </div>
+      <section className="rounded-2xl bg-gradient-to-r from-yellow-50 via-white to-amber-50 p-8 mb-8">
+        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <div className="flex-1">
+            <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">Gaarijua — Know Your Car</h1>
+            <p className="mt-4 text-slate-700 max-w-xl">
+              Discover premium rentals, buy trusted vehicles, and find quality spare parts across the region. Fast, secure, and built for African drivers.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <a href="/cars" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md shadow hover:brightness-95">Browse Cars</a>
+              <a href="/parts" className="inline-flex items-center gap-2 px-4 py-2 border rounded-md text-amber-700 bg-white hover:bg-amber-50">Browse Parts</a>
             </div>
-            <div className="hidden lg:block">
-              <div className="h-80 bg-[url('/hero-cars.jpg')] bg-cover bg-center" />
+          </div>
+          <div className="w-full lg:w-1/2">
+            <div className="relative rounded-xl overflow-hidden shadow-xl">
+              <div className="bg-[url('/hero-cars.jpg')] bg-cover bg-center h-56 lg:h-80" />
+              <div className="absolute top-4 left-4 bg-white/80 px-3 py-1 rounded-full text-sm font-medium">Premium marketplace</div>
             </div>
           </div>
         </div>

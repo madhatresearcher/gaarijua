@@ -11,8 +11,22 @@ function debounce(fn: (...args: any[]) => void, wait = 300) {
   }
 }
 
-export default function CarsList({ initialCars }: { initialCars: any[] }) {
-  const [cars, setCars] = useState<any[]>(initialCars || [])
+interface CarRecord {
+  id?: string
+  slug?: string
+  title?: string
+  location?: string
+  images?: string[]
+  is_for_rent?: boolean
+  price_per_day?: number
+  price_buy?: number
+  description?: string
+  year?: number
+  [key: string]: any
+}
+
+export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) {
+  const [cars, setCars] = useState<CarRecord[]>(initialCars || [])
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'rent' | 'sale'>('all')
   const mounted = useRef(false)
@@ -57,7 +71,7 @@ export default function CarsList({ initialCars }: { initialCars: any[] }) {
   useEffect(() => {
     // Subscribe to realtime changes on the `cars` table
     const channel = supabase.channel('public:cars')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cars' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cars' }, (payload: { eventType: string, new: CarRecord, old: CarRecord }) => {
         const ev = payload.eventType
         const newRecord = payload.new
         const oldRecord = payload.old
@@ -82,11 +96,11 @@ export default function CarsList({ initialCars }: { initialCars: any[] }) {
           }
           if (ev === 'UPDATE') {
             // if updated record matches, replace; if no longer matches, remove
-            if (matches(newRecord)) return prev.map(r => (r.id === newRecord.id ? newRecord : r))
-            return prev.filter(r => r.id !== newRecord.id)
+            if (matches(newRecord)) return prev.map((r: CarRecord) => (r.id === newRecord.id ? newRecord : r))
+            return prev.filter((r: CarRecord) => r.id !== newRecord.id)
           }
           if (ev === 'DELETE') {
-            return prev.filter(r => r.id !== oldRecord.id)
+            return prev.filter((r: CarRecord) => r.id !== oldRecord.id)
           }
           return prev
         })

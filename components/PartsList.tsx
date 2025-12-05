@@ -3,8 +3,22 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase-client'
 import PartCard from './PartCard'
 
-export default function PartsList({ initialParts }: { initialParts: any[] }) {
-  const [parts, setParts] = useState<any[]>(initialParts || [])
+interface PartRecord {
+  id?: string
+  slug?: string
+  title?: string
+  category?: string
+  brand?: string
+  price?: number
+  images?: string[]
+  compatible_models?: string[]
+  sku?: string
+  description?: string
+  [key: string]: any
+}
+
+export default function PartsList({ initialParts }: { initialParts: PartRecord[] }) {
+  const [parts, setParts] = useState<PartRecord[]>(initialParts || [])
   const [q, setQ] = useState('')
   const mounted = useRef(false)
 
@@ -38,7 +52,7 @@ export default function PartsList({ initialParts }: { initialParts: any[] }) {
 
   useEffect(() => {
     const channel = supabase.channel('public:parts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parts' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parts' }, (payload: { eventType: string, new: PartRecord, old: PartRecord }) => {
         const ev = payload.eventType
         const newRecord = payload.new
         const oldRecord = payload.old
@@ -60,10 +74,10 @@ export default function PartsList({ initialParts }: { initialParts: any[] }) {
             return [newRecord, ...prev]
           }
           if (ev === 'UPDATE') {
-            if (matches(newRecord)) return prev.map(p => (p.id === newRecord.id ? newRecord : p))
-            return prev.filter(p => p.id !== newRecord.id)
+            if (matches(newRecord)) return prev.map((p: PartRecord) => (p.id === newRecord.id ? newRecord : p))
+            return prev.filter((p: PartRecord) => p.id !== newRecord.id)
           }
-          if (ev === 'DELETE') return prev.filter(p => p.id !== oldRecord.id)
+          if (ev === 'DELETE') return prev.filter((p: PartRecord) => p.id !== oldRecord.id)
           return prev
         })
       })

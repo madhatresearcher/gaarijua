@@ -31,7 +31,7 @@ export default function HeaderGlassy() {
       : 'bg-white shadow-sm'
   }`
 
-  const searchPillClasses = `flex-1 max-w-3xl items-center gap-2 rounded-full shadow-sm px-2 py-1 transition-all duration-300 ${
+  const searchPillClasses = `flex w-full max-w-3xl items-center gap-2 rounded-full shadow-sm px-2 py-1 transition-all duration-300 ${
     scrolled ? 'bg-white/80 backdrop-blur-sm' : 'bg-white'
   }`
 
@@ -79,7 +79,7 @@ export default function HeaderGlassy() {
 
               <button
                 type="submit"
-                className="ml-2 rounded-full bg-[var(--g-accent,#F2B94A)] px-4 py-2 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                className="ml-auto rounded-full bg-[var(--g-accent,#F2B94A)] px-5 py-2 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300"
               >
                 Search
               </button>

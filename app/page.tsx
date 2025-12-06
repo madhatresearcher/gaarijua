@@ -3,7 +3,6 @@ import { supabaseServer } from '../lib/supabase-server'
 import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
-import HomeHeader from '../components/HomeHeader'
 
 export const revalidate = 60 // ISR: revalidate every 60 seconds
 
@@ -67,9 +66,34 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <HomeHeader />
+      <section className="bg-white">
+        <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-8">
+          <p className="text-xs uppercase tracking-[0.4em] text-slate-500">East Africa’s trusted auto market</p>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
+            Browse verified rentals, sales, and spare parts across Uganda
+          </h1>
+          <p className="text-lg text-slate-500 max-w-3xl mx-auto">
+            Gaarijua keeps the market honest with transparent listings, real-time availability, and fast responses.
+            Explore ready-to-drive cars or find the exact part you need.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/cars"
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-lg shadow-slate-900/30 transition hover:-translate-y-0.5"
+            >
+              Browse Cars
+            </Link>
+            <Link
+              href="/parts"
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-slate-900 transition hover:bg-slate-50"
+            >
+              Browse Parts
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <section className="relative z-20 -mt-10 mb-12">
+      <section className="relative z-20 mb-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex items-center gap-2 overflow-x-auto bg-white rounded-full shadow-lg border border-stone-200 px-3 py-2">
             {categories.map((cat) => (
@@ -146,33 +170,6 @@ export default async function Home() {
           </section>
         )}
 
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-stone-900 via-stone-800 to-amber-900" />
-          <div
-            className="absolute inset-0 opacity-5"
-            style={{
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-            }}
-          />
-          <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-20 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left">
-              <h2 className="text-3xl md:text-4xl font-black text-white">Ready to Sell Your Car?</h2>
-              <p className="mt-3 text-lg text-stone-300 max-w-md">
-                List your vehicle and reach thousands of buyers across Uganda. It&apos;s fast, easy, and free to get started.
-              </p>
-            </div>
-            <Link
-              href="/sell"
-              className="group px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black text-lg rounded-2xl transition-all shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50 hover:scale-105 flex items-center gap-3"
-            >
-              <span>Start Selling</span>
-              <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </Link>
-          </div>
-        </section>
       </div>
     </div>
   )

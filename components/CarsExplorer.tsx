@@ -72,12 +72,17 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
       <div className="max-w-6xl mx-auto px-4 py-20 space-y-12">
         <div className="space-y-4">
           <h1 className="text-3xl font-bold text-slate-900">Cars</h1>
-          <CarsToggle mode={mode} onChange={(value) => setMode(value)} />
+          <CarsToggle
+            mode={mode}
+            onChange={(value: 'rent' | 'buy') => setMode(value)}
+          />
         </div>
 
         <CarsFilterBar
           filters={workingFilters}
-          onChange={(field, value) => setWorkingFilters((prev) => ({ ...prev, [field]: value }))}
+          onChange={(field: keyof FilterFields, value: string) =>
+            setWorkingFilters((prev: FilterFields) => ({ ...prev, [field]: value }))
+          }
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
         />

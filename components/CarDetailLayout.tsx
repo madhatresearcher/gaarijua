@@ -26,6 +26,8 @@ type CarRecord = {
   instant_book?: boolean
   instant_bookable?: boolean
   featured?: boolean
+  price_buy?: number
+  priceBuy?: number
 }
 
 const MAX_COMPARE = 4
@@ -45,7 +47,9 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
   const router = useRouter()
   const currency = detectCurrencyFromRecord(car) || 'UGX'
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
+  const salePrice = Number(car.price_buy ?? car.priceBuy ?? 0)
   const normalizedCurrent = useMemo(() => normalizeListing(car), [car])
+  const isRental = Boolean(car.is_for_rent || pricePerDay)
   const [activeImage, setActiveImage] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const galleryImages = car.images && car.images.length > 0 ? car.images : ['/placeholder-car.jpg']
@@ -141,7 +145,13 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
     })
   }, [])
 
-  const priceLabel = pricePerDay ? formatCurrency(pricePerDay, currency) + '/day' : 'Price on request'
+  const priceLabel = isRental
+    ? pricePerDay
+      ? `${formatCurrency(pricePerDay, currency)}/day`
+      : 'Price on request'
+    : salePrice
+    ? formatCurrency(salePrice, currency)
+    : 'Price on request'
   const vendorTitle = car.seller || 'Verified Host'
 
   return (
@@ -280,44 +290,46 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
             </div>
           </article>
 
-          <article className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-slate-900">Availability calendar</h2>
-                <p className="text-sm text-slate-500">Select your preferred dates to refresh the price summary.</p>
+          {isRental && (
+            <article className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">Availability calendar</h2>
+                  <p className="text-sm text-slate-500">Select your preferred dates to refresh the price summary.</p>
+                </div>
+                <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" /> Available
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-rose-400" /> Booked
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-pink-200" /> Selected
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" /> Available
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-rose-400" /> Booked
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-pink-200" /> Selected
-                </span>
+              <div className="grid auto-cols-fr grid-flow-col gap-2 overflow-x-auto">
+                {calendarDays.map((day) => (
+                  <button
+                    key={day.iso}
+                    type="button"
+                    onClick={() => handleDayClick(day.date, day.disabled)}
+                    className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border p-2 text-xs font-semibold ${
+                      day.disabled
+                        ? 'border-rose-100 bg-rose-50 text-rose-400'
+                        : day.selected
+                        ? 'border-pink-200 bg-pink-50 text-pink-600'
+                        : 'border-slate-100 bg-white text-slate-900'
+                    }`}
+                  >
+                    <span className="text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">{day.weekday}</span>
+                    <span className="text-lg font-bold">{day.label}</span>
+                  </button>
+                ))}
               </div>
-            </div>
-            <div className="grid auto-cols-fr grid-flow-col gap-2 overflow-x-auto">
-              {calendarDays.map((day) => (
-                <button
-                  key={day.iso}
-                  type="button"
-                  onClick={() => handleDayClick(day.date, day.disabled)}
-                  className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border p-2 text-xs font-semibold ${
-                    day.disabled
-                      ? 'border-rose-100 bg-rose-50 text-rose-400'
-                      : day.selected
-                      ? 'border-pink-200 bg-pink-50 text-pink-600'
-                      : 'border-slate-100 bg-white text-slate-900'
-                  }`}
-                >
-                  <span className="text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">{day.weekday}</span>
-                  <span className="text-lg font-bold">{day.label}</span>
-                </button>
-              ))}
-            </div>
-          </article>
+            </article>
+          )}
 
           <article className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
             <div className="flex items-center justify-between">
@@ -341,7 +353,8 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
             </div>
           </article>
 
-          <section className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
+          {isRental && (
+            <section className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold text-slate-900">Similar rentals</h2>
               <p className="text-sm text-slate-500">Showing {similarRentals.length}</p>
@@ -356,18 +369,21 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
               ))}
             </div>
           </section>
+          )}
         </section>
       </div>
 
-      <CompareTray
-        tray={tray}
-        max={MAX_COMPARE}
-        message={trayMessage}
-        onRemove={removeFromTray}
-        onClear={clearTray}
-        onCompareNow={handleCompareNow}
-        compareDisabled={tray.length < 2}
-      />
+      {isRental && (
+        <CompareTray
+          tray={tray}
+          max={MAX_COMPARE}
+          message={trayMessage}
+          onRemove={removeFromTray}
+          onClear={clearTray}
+          onCompareNow={handleCompareNow}
+          compareDisabled={tray.length < 2}
+        />
+      )}
     </div>
   )
 }

@@ -234,10 +234,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
             </div>
             <div className="space-y-3">
               <button className="w-full rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-slate-800">
-                Book now
-              </button>
-              <button className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-900">
-                Message vendor
+                {isRental ? 'Book now' : 'Contact seller'}
               </button>
               {(car.instant_bookable || car.instant_book) && (
                 <button className="w-full rounded-2xl bg-slate-100 px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-700">

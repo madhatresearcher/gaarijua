@@ -67,6 +67,15 @@ VALUES
  'Sporty SUV, smooth drive, perfect for weekend outings.',
  ARRAY['https://picsum.photos/seed/cx51/1200/800','https://picsum.photos/seed/cx52/1200/800'],
  'mazda-cx5-2018-rent', true, 65, 'Mbarara, UG')
+,
+('Mercedes GLE 400 - Urban Rental','Mercedes-Benz','GLE 400',2020,
+ 'Refined midsize SUV with executive trim, spacious cabin, and turbocharged V6 comfort.',
+ ARRAY['https://picsum.photos/seed/gle1/1200/800','https://picsum.photos/seed/gle2/1200/800'],
+ 'mercedes-gle-400-2020-rent', true, 120, 'Kampala, UG'),
+('Land Rover Discovery Sport - Safari Ready','Land Rover','Discovery Sport',2019,
+ 'Commanding view, all-wheel drive, and premium ride tuned for safari circuits.',
+ ARRAY['https://picsum.photos/seed/discovery1/1200/800','https://picsum.photos/seed/discovery2/1200/800'],
+ 'land-rover-discovery-sport-2019-rent', true, 110, 'Entebbe, UG')
 ON CONFLICT (slug) DO UPDATE SET
   title = EXCLUDED.title,
   brand = EXCLUDED.brand,

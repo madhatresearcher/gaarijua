@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.cars (
   price_per_day numeric(10,2),
   price_buy numeric(12,2),
   location text,
+  mileage integer,
   created_at timestamptz DEFAULT now()
 );
 
@@ -78,33 +79,58 @@ ON CONFLICT (slug) DO UPDATE SET
   location = EXCLUDED.location,
   created_at = now();
 
--- 5 Cars for Sale
-INSERT INTO cars (title, brand, model, year, description, images, slug, is_for_rent, price_buy, location)
+-- Snowy sales inventory (10 cars)
+INSERT INTO cars (title, brand, model, year, description, images, slug, is_for_rent, price_buy, location, mileage)
 VALUES
-('Toyota Corolla - For Sale','Toyota','Corolla',2012,
- 'Very clean daily driver, low fuel usage, well maintained.',
- ARRAY['https://picsum.photos/seed/corolla1/1200/800','https://picsum.photos/seed/corolla2/1200/800'],
- 'toyota-corolla-2012-sale', false, 8000, 'Kampala, UG'),
+('Land Cruiser 300 Series','Toyota','Land Cruiser 300 Series',2023,
+ 'Flagship V6 twin-turbo Land Cruiser with full-time 4WD, premium interior, and advanced off-road technologies. Mileage: 12,000 km.',
+ ARRAY['https://mystrongad.com/toyota/2025/land-cruiser/2025-toyota-land-cruiser-blue.webp'],
+ 'toyota-land-cruiser-300-series-2023', false, 125000, 'Kampala, Uganda', 12000),
 
-('Nissan X-Trail - For Sale','Nissan','X-Trail',2014,
- 'Full service history, good interior, powerful AC.',
- ARRAY['https://picsum.photos/seed/xtrail1/1200/800','https://picsum.photos/seed/xtrail2/1200/800'],
- 'nissan-xtrail-2014-sale', false, 11500, 'Jinja, UG'),
+('Land Cruiser 200 Series','Toyota','Land Cruiser 200 Series',2021,
+ 'Legendary V8 Land Cruiser known for unmatched durability and comfort. Excellent expedition platform. Mileage: 45,000 km.',
+ ARRAY['https://dissentoffroad.com/cdn/shop/files/LC200-stellar-front02.jpg?v=1738784195'],
+ 'toyota-land-cruiser-200-series-2021', false, 98000, 'Nairobi, Kenya', 45000),
 
-('Mercedes C200 - For Sale','Mercedes-Benz','C200',2013,
- 'Luxury compact sedan with leather interior and smooth drive.',
- ARRAY['https://picsum.photos/seed/c200-1/1200/800','https://picsum.photos/seed/c200-2/1200/800'],
- 'mercedes-c200-2013-sale', false, 16500, 'Kampala, UG'),
+('Patrol Y62','Nissan','Patrol Y62',2020,
+ '5.6L V8 powerhouse with luxury interior and hydraulic body motion control. A Land Cruiser rival. Mileage: 65,000 km.',
+ ARRAY['https://storyblok-assets.prod.nissan.eu/f/298759/2560x1440/fd57420803/qac-2560x1440.jpg/m/filters%3Aquality%2880%29'],
+ 'nissan-patrol-y62-2020', false, 85000, 'Dubai, UAE', 65000),
 
-('Subaru Forester - For Sale','Subaru','Forester',2015,
- 'Excellent condition, well serviced, strong engine.',
- ARRAY['https://picsum.photos/seed/forester1/1200/800','https://picsum.photos/seed/forester2/1200/800'],
- 'subaru-forester-2015-sale', false, 12000, 'Mbale, UG'),
+('X-Trail','Nissan','X-Trail',2022,
+ 'Efficient family SUV with modern infotainment, AWD, and excellent fuel economy. Mileage: 21,000 km.',
+ ARRAY['https://www-asia.nissan-cdn.net/content/dam/Nissan/AU/Images/vehicles/X-TRAIL/side-profiles/compressed/XT4EPASTL24_TDNNRD9T33TMAA----.png'],
+ 'nissan-xtrail-2022', false, 31000, 'Kigali, Rwanda', 21000),
 
-('Toyota Hilux - For Sale','Toyota','Hilux',2016,
- 'Strong and reliable pickup ideal for commercial work.',
- ARRAY['https://picsum.photos/seed/hilux1/1200/800','https://picsum.photos/seed/hilux2/1200/800'],
- 'toyota-hilux-2016-sale', false, 14000, 'Kampala, UG')
+('Qashqai','Nissan','Qashqai',2023,
+ 'Stylish modern crossover with advanced safety tech and great city comfort. Mileage: 10,000 km.',
+ ARRAY['https://images.carandbike.com/cms/articles/2024/4/3212751/Nissan_Qashqai_facelift_2_2fdf5fd0f3.jpg'],
+ 'nissan-qashqai-2023', false, 34000, 'Dar es Salaam, Tanzania', 10000),
+
+('Navara','Nissan','Navara',2019,
+ 'Reliable workhorse pickup with diesel efficiency and excellent off-road capability. Mileage: 98,000 km.',
+ ARRAY['https://upload.wikimedia.org/wikipedia/commons/e/e9/2018_Nissan_Navara_Tekna_DCi_Automatic_2.3.jpg'],
+ 'nissan-navara-2019', false, 28000, 'Gulu, Uganda', 98000),
+
+('Sunny','Nissan','Sunny',2021,
+ 'Fuel-efficient sedan perfect for safe daily commuting and fleet operations. Mileage: 30,000 km.',
+ ARRAY['https://www.autopediame.com/storage/images/Nissan/2023/sunny%20front%20.jpg'],
+ 'nissan-sunny-2021', false, 14000, 'Mombasa, Kenya', 30000),
+
+('Defender 110','Land Rover','Defender 110',2022,
+ 'Rugged luxury 4x4 with modern tech, iconic design, and unbeatable off-road ability. Mileage: 15,000 km.',
+ ARRAY['https://www.landroverwindsor.com/images/ckfinder/LAND%20ROVER%20DEFENDER%20exterior.jpg'],
+ 'land-rover-defender-110-2022', false, 115000, 'Kampala, Uganda', 15000),
+
+('Range Rover','Land Rover','Range Rover',2023,
+ 'The ultimate statement SUV — silent ride, top-tier luxury, and adaptive off-road systems. Mileage: 8,000 km.',
+ ARRAY['https://lp-auto-assets.s3.amazonaws.com/24/land-rover/range-rover/M3/secc1.jpg'],
+ 'land-rover-range-rover-2023', false, 180000, 'Abuja, Nigeria', 8000),
+
+('Discovery','Land Rover','Discovery',2021,
+ 'Versatile family luxury SUV with 7 seats, air suspension, and strong off-road performance. Mileage: 40,000 km.',
+ ARRAY['https://imgcdn.oto.com/large/gallery/exterior/43/1762/land-rover-discovery-side-view-393597.jpg'],
+ 'land-rover-discovery-2021', false, 75000, 'Johannesburg, South Africa', 40000)
 ON CONFLICT (slug) DO UPDATE SET
   title = EXCLUDED.title,
   brand = EXCLUDED.brand,
@@ -114,6 +140,7 @@ ON CONFLICT (slug) DO UPDATE SET
   images = EXCLUDED.images,
   price_buy = EXCLUDED.price_buy,
   location = EXCLUDED.location,
+  mileage = EXCLUDED.mileage,
   created_at = now();
 
 -- 5 Parts

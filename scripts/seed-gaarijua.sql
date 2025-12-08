@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS public.cars (
   created_at timestamptz DEFAULT now()
 );
 
+ALTER TABLE public.cars
+  ADD COLUMN IF NOT EXISTS mileage integer;
+
 -- Parts table
 CREATE TABLE IF NOT EXISTS public.parts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

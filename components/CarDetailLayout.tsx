@@ -333,13 +333,13 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
                   </button>
                 </div>
               </div>
-              <div className="grid auto-cols-fr grid-flow-col gap-2 overflow-x-auto">
+              <div className="grid auto-cols-[minmax(0,3.75rem)] grid-flow-col gap-12 overflow-x-auto px-10 scroll-px-10 snap-x snap-mandatory">
                 {calendarDays.map((day) => (
                   <button
                     key={day.iso}
                     type="button"
                     onClick={() => handleDayClick(day.date, day.disabled)}
-                    className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border p-2 text-[10px] font-semibold ${
+                    className={`snap-start flex h-32 w-16 flex-col items-center justify-center rounded-3xl border p-3 text-[11px] font-semibold -ml-2 first:ml-0 ${
                       day.disabled
                         ? 'border-rose-100 bg-rose-50 text-rose-400'
                         : day.selected

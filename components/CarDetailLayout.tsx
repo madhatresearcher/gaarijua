@@ -339,7 +339,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
                     key={day.iso}
                     type="button"
                     onClick={() => handleDayClick(day.date, day.disabled)}
-                    className={`snap-start flex h-32 w-16 flex-col items-center justify-center rounded-3xl border p-3 text-[11px] font-semibold -ml-2 first:ml-0 ${
+                    className={`snap-start flex h-24 w-16 flex-col items-center justify-center rounded-3xl border p-3 text-[11px] font-semibold -ml-2 first:ml-0 ${
                       day.disabled
                         ? 'border-rose-100 bg-rose-50 text-rose-400'
                         : day.selected

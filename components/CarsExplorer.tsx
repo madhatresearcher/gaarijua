@@ -69,7 +69,7 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-6xl mx-auto px-4 py-20 space-y-12">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-16 space-y-10">
         <div className="space-y-4">
           <h1 className="text-3xl font-bold text-slate-900">Cars</h1>
           <CarsToggle
@@ -93,7 +93,7 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
               {loading ? 'Refreshing results...' : `${cars.length} cars shown`}
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {cars.map((car) => (
               <CarCard key={car.id ?? car.slug} car={car} />
             ))}

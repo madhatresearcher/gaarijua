@@ -56,6 +56,11 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
   const [selectedRange, setSelectedRange] = useState<DateRange>({})
   const [tray, setTray] = useState<CompareItem[]>([])
   const [trayMessage, setTrayMessage] = useState('')
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
+
+  const earliestMonth = useMemo(() => startOfMonth(new Date()), [])
+  const maxAdvanceMonths = 5
+  const latestMonth = useMemo(() => addMonths(earliestMonth, maxAdvanceMonths), [earliestMonth])
 
   const calibratedRange = useMemo(() => (
     selectedRange.start && selectedRange.end
@@ -66,7 +71,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
       : selectedRange
   ), [selectedRange])
 
-  const calendarDays = useMemo(() => buildCalendar(calibratedRange), [calibratedRange])
+  const calendarDays = useMemo(() => buildMonthCalendar(currentMonth, calibratedRange), [currentMonth, calibratedRange])
   const selectedNights = useMemo(() => computeNights(calibratedRange), [calibratedRange])
   const totalPrice = pricePerDay * Math.max(1, selectedNights)
   const features = useMemo(() => buildFeatures(car), [car])
@@ -144,6 +149,18 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
       return { start: date }
     })
   }, [])
+
+  const handleMonthChange = useCallback(
+    (direction: number) => {
+      setCurrentMonth((prev) => {
+        const next = addMonths(prev, direction)
+        if (direction < 0 && next.getTime() < earliestMonth.getTime()) return prev
+        if (direction > 0 && next.getTime() > latestMonth.getTime()) return prev
+        return next
+      })
+    },
+    [earliestMonth, latestMonth]
+  )
 
   const priceLabel = isRental
     ? pricePerDay
@@ -289,21 +306,31 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
 
           {isRental && (
             <article className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-semibold text-slate-900">Availability calendar</h2>
-                  <p className="text-sm text-slate-500">Select your preferred dates to refresh the price summary.</p>
+                  <p className="text-sm text-slate-500">Scroll the slabs to book any number of days.</p>
                 </div>
-                <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" /> Available
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(-1)}
+                    disabled={!canPrevMonth(currentMonth, earliestMonth)}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-rose-400" /> Booked
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-pink-200" /> Selected
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleMonthChange(1)}
+                    disabled={!canNextMonth(currentMonth, latestMonth)}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ›
+                  </button>
                 </div>
               </div>
               <div className="grid auto-cols-fr grid-flow-col gap-2 overflow-x-auto">
@@ -312,7 +339,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
                     key={day.iso}
                     type="button"
                     onClick={() => handleDayClick(day.date, day.disabled)}
-                    className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border p-2 text-xs font-semibold ${
+                    className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border p-2 text-[10px] font-semibold ${
                       day.disabled
                         ? 'border-rose-100 bg-rose-50 text-rose-400'
                         : day.selected
@@ -320,7 +347,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
                         : 'border-slate-100 bg-white text-slate-900'
                     }`}
                   >
-                    <span className="text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">{day.weekday}</span>
+                    <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-400">{day.weekday}</span>
                     <span className="text-lg font-bold">{day.label}</span>
                   </button>
                 ))}
@@ -487,4 +514,54 @@ function makeISO(base: Date, offset: number) {
 function formatDate(date?: Date) {
   if (!date) return '--'
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function canPrevMonth(currentMonth: Date, earliestMonth: Date) {
+  return currentMonth.getTime() > earliestMonth.getTime()
+}
+
+function canNextMonth(currentMonth: Date, latestMonth: Date) {
+  return currentMonth.getTime() < latestMonth.getTime()
+}
+
+function startOfMonth(date: Date) {
+  const clone = new Date(date)
+  clone.setDate(1)
+  clone.setHours(0, 0, 0, 0)
+  return clone
+}
+
+function endOfMonth(date: Date) {
+  const clone = new Date(date)
+  clone.setMonth(clone.getMonth() + 1)
+  clone.setDate(0)
+  clone.setHours(0, 0, 0, 0)
+  return clone
+}
+
+function addMonths(date: Date, amount: number) {
+  const clone = new Date(date)
+  clone.setMonth(clone.getMonth() + amount)
+  return clone
+}
+
+function buildMonthCalendar(monthStart: Date, range: DateRange) {
+  const days: Array<{ date: Date; label: number; weekday: string; iso: string; disabled: boolean; selected: boolean }> = []
+  const start = startOfMonth(monthStart)
+  const end = endOfMonth(monthStart)
+  const today = normalizeDay(new Date())
+  const cursor = new Date(start)
+  while (cursor.getTime() <= end.getTime()) {
+    const iso = cursor.toISOString().slice(0, 10)
+    days.push({
+      date: new Date(cursor),
+      label: cursor.getDate(),
+      weekday: cursor.toLocaleDateString('en-US', { weekday: 'short' }),
+      iso,
+      disabled: cursor.getTime() < today.getTime(),
+      selected: isSelected(cursor, range),
+    })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return days
 }

@@ -33,11 +33,6 @@ type CarRecord = {
 const MAX_COMPARE = 4
 const STORAGE_KEY = 'gaariua-compare-tray'
 
-type DateRange = {
-  start?: Date
-  end?: Date
-}
-
 type CarDetailLayoutProps = {
   car: CarRecord
   similarRentals: CarRecord[]
@@ -53,7 +48,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
   const [activeImage, setActiveImage] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const galleryImages = car.images && car.images.length > 0 ? car.images : ['/placeholder-car.jpg']
-  const [selectedRange, setSelectedRange] = useState<DateRange>({})
+  const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [tray, setTray] = useState<CompareItem[]>([])
   const [trayMessage, setTrayMessage] = useState('')
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
@@ -62,18 +57,12 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
   const maxAdvanceMonths = 5
   const latestMonth = useMemo(() => addMonths(earliestMonth, maxAdvanceMonths), [earliestMonth])
 
-  const calibratedRange = useMemo(() => (
-    selectedRange.start && selectedRange.end
-      ? {
-          start: selectedRange.start < selectedRange.end ? selectedRange.start : selectedRange.end,
-          end: selectedRange.end < selectedRange.start ? selectedRange.start : selectedRange.end,
-        }
-      : selectedRange
-  ), [selectedRange])
-
-  const calendarDays = useMemo(() => buildMonthCalendar(currentMonth, calibratedRange), [currentMonth, calibratedRange])
-  const selectedNights = useMemo(() => computeNights(calibratedRange), [calibratedRange])
-  const totalPrice = pricePerDay * Math.max(1, selectedNights)
+  const selectedDatesSet = useMemo(() => new Set(selectedDates), [selectedDates])
+  const selectedDatesSorted = useMemo(() => [...selectedDates].sort(), [selectedDates])
+  const calendarDays = useMemo(() => buildMonthCalendar(currentMonth, selectedDatesSet), [currentMonth, selectedDatesSet])
+  const selectedBatchCount = useMemo(() => countSelectionBatches(selectedDatesSorted), [selectedDatesSorted])
+  const selectedNights = selectedDates.length
+  const totalPrice = pricePerDay * selectedNights
   const features = useMemo(() => buildFeatures(car), [car])
   const reviews = useMemo(() => buildReviews(car), [car])
 
@@ -138,15 +127,12 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
 
   const handleDayClick = useCallback((date: Date, disabled: boolean) => {
     if (disabled) return
-    setSelectedRange((prev) => {
-      if (!prev.start || (prev.start && prev.end)) {
-        return { start: date }
+    const iso = toIso(date)
+    setSelectedDates((prev) => {
+      if (prev.includes(iso)) {
+        return prev.filter((entry) => entry !== iso)
       }
-      if (prev.start && !prev.end) {
-        if (date < prev.start) return { start: date, end: prev.start }
-        return { start: prev.start, end: date }
-      }
-      return { start: date }
+      return [...prev, iso]
     })
   }, [])
 
@@ -264,11 +250,17 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Price summary</p>
               <p className="text-sm font-semibold text-slate-500">Selected dates</p>
               <p className="text-lg font-semibold text-slate-900">
-                {selectedRange.start ? formatDate(selectedRange.start) : 'Start date'} –{' '}
-                {selectedRange.end ? formatDate(selectedRange.end) : 'End date'}
+                {selectedDatesSorted.length
+                  ? `${formatDate(new Date(selectedDatesSorted[0]))} – ${formatDate(new Date(selectedDatesSorted[selectedDatesSorted.length - 1]))}`
+                  : 'No dates selected'}
+              </p>
+              <p className="text-xs text-slate-500">
+                {selectedDatesSorted.length
+                  ? `${selectedDatesSorted.length} day${selectedDatesSorted.length === 1 ? '' : 's'} across ${selectedBatchCount} batch${selectedBatchCount === 1 ? '' : 'es'}`
+                  : 'Tap each day you need; you can add multiple ranges.'}
               </p>
               <div className="mt-2 flex items-center justify-between text-sm">
-                <span>{selectedNights || 1} day(s)</span>
+                <span>{selectedNights} day(s)</span>
                 <span className="font-semibold text-slate-900">{formatCurrency(totalPrice, currency)}</span>
               </div>
             </div>
@@ -309,7 +301,7 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-semibold text-slate-900">Availability calendar</h2>
-                  <p className="text-sm text-slate-500">Scroll the slabs to book any number of days.</p>
+                  <p className="text-sm text-slate-500">Tap any day to add or remove it; you can compose multiple batches as needed.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -457,58 +449,10 @@ function buildReviews(car: CarRecord) {
   }))
 }
 
-function buildCalendar(range: DateRange) {
-  const today = new Date()
-  const blockedOffsets = [3, 6, 9, 12]
-  const blockedSet = new Set(blockedOffsets.map((offset) => makeISO(today, offset)))
-  return Array.from({ length: 21 }, (_, index) => {
-    const date = new Date()
-    date.setDate(today.getDate() + index)
-    const iso = date.toISOString().slice(0, 10)
-    return {
-      date,
-      label: date.getDate(),
-      weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      iso,
-      disabled: blockedSet.has(iso),
-      selected: isSelected(date, range),
-    }
-  })
-}
-
-function computeNights(range: DateRange) {
-  if (!range.start) return 0
-  if (!range.end) return 1
-  const start = normalizeDay(range.start)
-  const end = normalizeDay(range.end)
-  const diffMs = Math.abs(end.getTime() - start.getTime())
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-  return Math.max(1, diffDays + 1)
-}
-
-function isSelected(date: Date, range: DateRange) {
-  if (!range.start) return false
-  const target = normalizeDay(date).getTime()
-  if (!range.end) {
-    return target === normalizeDay(range.start).getTime()
-  }
-  const start = normalizeDay(range.start)
-  const end = normalizeDay(range.end)
-  const startTime = Math.min(start.getTime(), end.getTime())
-  const endTime = Math.max(start.getTime(), end.getTime())
-  return target >= startTime && target <= endTime
-}
-
 function normalizeDay(date: Date) {
   const clone = new Date(date)
   clone.setHours(0, 0, 0, 0)
   return clone
-}
-
-function makeISO(base: Date, offset: number) {
-  const date = new Date(base)
-  date.setDate(base.getDate() + offset)
-  return date.toISOString().slice(0, 10)
 }
 
 function formatDate(date?: Date) {
@@ -545,7 +489,7 @@ function addMonths(date: Date, amount: number) {
   return clone
 }
 
-function buildMonthCalendar(monthStart: Date, range: DateRange) {
+function buildMonthCalendar(monthStart: Date, selectedIsoSet: Set<string>) {
   const days: Array<{ date: Date; label: number; weekday: string; iso: string; disabled: boolean; selected: boolean }> = []
   const start = startOfMonth(monthStart)
   const end = endOfMonth(monthStart)
@@ -559,9 +503,27 @@ function buildMonthCalendar(monthStart: Date, range: DateRange) {
       weekday: cursor.toLocaleDateString('en-US', { weekday: 'short' }),
       iso,
       disabled: cursor.getTime() < today.getTime(),
-      selected: isSelected(cursor, range),
+      selected: selectedIsoSet.has(iso),
     })
     cursor.setDate(cursor.getDate() + 1)
   }
   return days
+}
+
+function countSelectionBatches(isos: string[]) {
+  if (!isos.length) return 0
+  let batches = 1
+  for (let index = 1; index < isos.length; index += 1) {
+    const prev = normalizeDay(new Date(isos[index - 1]))
+    const current = normalizeDay(new Date(isos[index]))
+    const diff = (current.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)
+    if (diff > 1) {
+      batches += 1
+    }
+  }
+  return batches
+}
+
+function toIso(date: Date) {
+  return normalizeDay(date).toISOString().slice(0, 10)
 }

@@ -68,7 +68,7 @@ export default function PartsExplorer({ initialParts }: PartsExplorerProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-6xl mx-auto px-4 py-20 space-y-12">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-16 space-y-12">
         <div className="space-y-4">
           <h1 className="text-3xl font-bold text-slate-900">Parts</h1>
           <p className="text-sm text-slate-500">

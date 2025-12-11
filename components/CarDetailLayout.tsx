@@ -246,24 +246,26 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 shadow-inner">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Price summary</p>
-              <p className="text-sm font-semibold text-slate-500">Selected dates</p>
-              <p className="text-lg font-semibold text-slate-900">
-                {selectedDatesSorted.length
-                  ? `${formatDate(new Date(selectedDatesSorted[0]))} – ${formatDate(new Date(selectedDatesSorted[selectedDatesSorted.length - 1]))}`
-                  : 'No dates selected'}
-              </p>
-              <p className="text-xs text-slate-500">
-                {selectedDatesSorted.length
-                  ? `${selectedDatesSorted.length} day${selectedDatesSorted.length === 1 ? '' : 's'} across ${selectedBatchCount} batch${selectedBatchCount === 1 ? '' : 'es'}`
-                  : 'Tap each day you need; you can add multiple ranges.'}
-              </p>
-              <div className="mt-2 flex items-center justify-between text-sm">
-                <span>{selectedNights} day(s)</span>
-                <span className="font-semibold text-slate-900">{formatCurrency(totalPrice, currency)}</span>
+            {isRental && (
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 shadow-inner">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Price summary</p>
+                <p className="text-sm font-semibold text-slate-500">Selected dates</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  {selectedDatesSorted.length
+                    ? `${formatDate(new Date(selectedDatesSorted[0]))} – ${formatDate(new Date(selectedDatesSorted[selectedDatesSorted.length - 1]))}`
+                    : 'No dates selected'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {selectedDatesSorted.length
+                    ? `${selectedDatesSorted.length} day${selectedDatesSorted.length === 1 ? '' : 's'} across ${selectedBatchCount} batch${selectedBatchCount === 1 ? '' : 'es'}`
+                    : 'Tap each day you need; you can add multiple ranges.'}
+                </p>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span>{selectedNights} day(s)</span>
+                  <span className="font-semibold text-slate-900">{formatCurrency(totalPrice, currency)}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Vendor</p>

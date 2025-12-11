@@ -39,7 +39,6 @@ const rawListings = [
     year: 2024,
     trim: 'ZX',
     price: 920000,
-    currency: 'UGX',
     location: 'Kampala, Uganda',
     availability: true,
     image_url: 'https://www.toyota.co.ug/content/dam/toyota/uganda/global/vehicles/land-cruiser-300/2024/exterior-1.jpg',
@@ -338,7 +337,6 @@ const now = new Date().toISOString()
 const listings = rawListings.map((item) => {
   const isRent = item.listing_type === 'rent'
   return {
-    id: item.id,
     slug: item.id,
     title: `${item.make} ${item.model} ${item.year}`,
     description: item.description,
@@ -347,8 +345,6 @@ const listings = rawListings.map((item) => {
     location: item.location,
     year: item.year,
     images: item.image_url ? [item.image_url] : [],
-    currency: item.currency,
-    type: isRent ? 'rental' : 'sale',
     is_for_rent: isRent,
     created_at: now,
   }
@@ -356,7 +352,7 @@ const listings = rawListings.map((item) => {
 
 async function seed() {
   try {
-    const { error, data } = await supabase.from('cars').upsert(listings, { onConflict: 'id' }).select()
+    const { error, data } = await supabase.from('cars').upsert(listings, { onConflict: 'slug' }).select()
     if (error) {
       console.error('Seed error:', error.message || error)
       process.exit(1)

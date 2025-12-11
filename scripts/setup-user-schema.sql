@@ -1,0 +1,104 @@
+-- Supabase schema & RLS for profiles, bookings, and related policies.
+BEGIN;
+
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role text not null check (role in ('admin', 'support', 'vendor')),
+  vendor_type text check (vendor_type in ('rental_company', 'seller')),
+  rental_company_id uuid references profiles(id),
+  display_name text,
+  email text,
+  phone text,
+  avatar_url text,
+  is_active boolean default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table if exists cars
+  add column if not exists owner_id uuid references profiles(id),
+  add column if not exists rental_company_id uuid references profiles(id);
+
+alter table if exists parts
+  add column if not exists owner_id uuid references profiles(id);
+
+-- Rentals and sales bookings history table.
+create table if not exists bookings (
+  id uuid primary key default gen_random_uuid(),
+  vehicle_id uuid not null references cars(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  rental_company_id uuid references profiles(id),
+  start_date date not null,
+  end_date date not null,
+  status text not null check (status in ('pending','confirmed','completed','cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Enable RLS on bookings so that policies control who sees what.
+alter table if exists bookings enable row level security;
+
+drop policy if exists "bookings_admin_support_full" on bookings;
+drop policy if exists "bookings_profile_owner" on bookings;
+drop policy if exists "bookings_rental_company_history" on bookings;
+
+-- Admins & support get full visibility; rental companies see fleet history; users see their own bookings.
+create policy "bookings_admin_support_full" on bookings
+  for all
+  using (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')))
+  with check (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')));
+
+create policy "bookings_profile_owner" on bookings
+  for select
+  using (user_id = auth.uid());
+
+create policy "bookings_rental_company_history" on bookings
+  for select
+  using (
+    exists (
+      select 1
+      from profiles
+      where profiles.id = auth.uid()
+        and profiles.vendor_type = 'rental_company'
+        and bookings.rental_company_id = profiles.id
+    )
+  );
+
+-- Cars/parts already exist; add RLS-aware helper to ensure vendor ownership.
+alter table if exists cars enable row level security;
+alter table if exists parts enable row level security;
+
+drop policy if exists "cars_owner_or_high_level" on cars;
+drop policy if exists "parts_owner_or_high_level" on parts;
+
+create policy "cars_owner_or_high_level" on cars
+  for all
+  using (
+    exists (
+      select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')
+    )
+    or cars.owner_id = auth.uid()
+  )
+  with check (
+    exists (
+      select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')
+    )
+    or cars.owner_id = auth.uid()
+  );
+
+create policy "parts_owner_or_high_level" on parts
+  for all
+  using (
+    exists (
+      select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')
+    )
+    or parts.owner_id = auth.uid()
+  )
+  with check (
+    exists (
+      select 1 from profiles where profiles.id = auth.uid() and profiles.role in ('admin','support')
+    )
+    or parts.owner_id = auth.uid()
+  );
+
+COMMIT;

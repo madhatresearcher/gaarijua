@@ -64,12 +64,13 @@ create policy "bookings_rental_company_history" on bookings
     )
   );
 
--- Cars/parts already exist; add RLS-aware helper to ensure vendor ownership.
 alter table if exists cars enable row level security;
 alter table if exists parts enable row level security;
 
 drop policy if exists "cars_owner_or_high_level" on cars;
 drop policy if exists "parts_owner_or_high_level" on parts;
+drop policy if exists "cars_public_select" on cars;
+drop policy if exists "parts_public_select" on parts;
 
 create policy "cars_owner_or_high_level" on cars
   for all
@@ -85,6 +86,14 @@ create policy "cars_owner_or_high_level" on cars
     )
     or cars.owner_id = auth.uid()
   );
+
+create policy "cars_public_select" on cars
+  for select
+  using (true);
+
+create policy "parts_public_select" on parts
+  for select
+  using (true);
 
 create policy "parts_owner_or_high_level" on parts
   for all

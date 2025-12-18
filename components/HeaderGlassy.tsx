@@ -1,6 +1,7 @@
 "use client"
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSupabaseUser } from '../hooks/useSupabaseUser'
 
 // HeaderGlassy uses a 10px scroll threshold to toggle between solid and frosted-glass classes.
 export default function HeaderGlassy() {
@@ -24,6 +25,17 @@ export default function HeaderGlassy() {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [searchOpen])
+
+  const user = useSupabaseUser()
+  const userLabel = useMemo(() => {
+    if (!user) return null
+    return (
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split('@')[0] ||
+      user.email
+    )
+  }, [user])
 
   const headerClasses = `fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-in-out ${
     scrolled
@@ -125,7 +137,7 @@ export default function HeaderGlassy() {
                   : 'border border-slate-200 bg-white text-slate-900'
               }`}
             >
-              Host Status
+              {user ? `Host Status · ${userLabel}` : 'Host Status'}
             </button>
 
             <button
@@ -143,12 +155,12 @@ export default function HeaderGlassy() {
               </svg>
             </button>
 
-            <button
-              type="button"
+            <Link
+              href="/auth/sign-in"
               className="rounded-full bg-slate-900 px-4 py-1 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300"
             >
-              Sign in
-            </button>
+              {user ? userLabel ?? 'Account' : 'Sign in'}
+            </Link>
           </div>
         </div>
       </div>

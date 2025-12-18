@@ -1,8 +1,22 @@
+"use client"
+
 import Link from 'next/link'
+import { useMemo } from 'react'
+import { useSupabaseUser } from '../hooks/useSupabaseUser'
 
 const pattern = "data:image/svg+xml,%3Csvg width='90' height='90' viewBox='0 0 90 90' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%23ffffff' stroke-opacity='0.12' stroke-width='2'%3E%3Cpath d='M0 22.5h90M0 67.5h90M22.5 0v90M67.5 0v90'/%3E%3C/g%3E%3Ccircle cx='45' cy='45' r='6' fill='%23ffffff' fill-opacity='0.08'/%3E%3C/g%3E%3C/svg%3E"
 
 export default function HeroHeader() {
+  const user = useSupabaseUser()
+  const userLabel = useMemo(() => {
+    if (!user) return null
+    return (
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split('@')[0] ||
+      user.email
+    )
+  }, [user])
   return (
     <header className="relative overflow-hidden bg-gradient-to-br from-[#D87D4A] via-[#F2B94A] to-[#B6532A] text-white">
       <div className="absolute inset-0 opacity-50" style={{ backgroundImage: `url(${pattern})`, backgroundSize: '220px 220px' }} />
@@ -24,13 +38,13 @@ export default function HeroHeader() {
               Parts
             </Link>
             <Link href="/host" className="text-white/85 hover:text-white transition-colors hidden md:inline">
-              Host Status
+              {user ? `Host Status · ${userLabel}` : 'Host Status'}
             </Link>
             <Link
               href="/auth/sign-in"
               className="px-4 py-2 rounded-full border border-white/50 text-white font-semibold hover:bg-white/10 transition"
             >
-              Sign in
+              {user ? userLabel ?? 'Account' : 'Sign in'}
             </Link>
           </div>
         </nav>

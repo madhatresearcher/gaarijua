@@ -26,16 +26,17 @@ export default function HeaderGlassy() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [searchOpen])
 
-  const user = useSupabaseUser()
+  const { user, profile, signOut } = useSupabaseUser()
   const userLabel = useMemo(() => {
     if (!user) return null
     return (
+      profile?.display_name ||
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
       user.email?.split('@')[0] ||
       user.email
     )
-  }, [user])
+  }, [profile, user])
 
   const headerClasses = `fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-in-out ${
     scrolled
@@ -155,12 +156,22 @@ export default function HeaderGlassy() {
               </svg>
             </button>
 
-            <Link
-              href="/auth/sign-in"
-              className="rounded-full bg-slate-900 px-4 py-1 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300"
-            >
-              {user ? userLabel ?? 'Account' : 'Sign in'}
-            </Link>
+            {user ? (
+              <button
+                type="button"
+                onClick={signOut}
+                className="rounded-full bg-slate-900 px-4 py-1 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300"
+              >
+                Sign out
+              </button>
+            ) : (
+              <Link
+                href="/auth/sign-in"
+                className="rounded-full bg-slate-900 px-4 py-1 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         </div>
       </div>

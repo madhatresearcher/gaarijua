@@ -3,7 +3,7 @@ BEGIN;
 
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  role text not null check (role in ('admin', 'support', 'vendor')),
+  role text not null default 'user' check (role in ('admin', 'support', 'vendor', 'user')),
   vendor_type text check (vendor_type in ('rental_company', 'seller')),
   rental_company_id uuid references profiles(id),
   display_name text,

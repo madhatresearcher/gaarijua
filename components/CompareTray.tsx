@@ -39,9 +39,9 @@ export default function CompareTray({
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(90px,1fr))] gap-2 pb-3">
         {tray.map((item, index) => (
-          <div key={item.id} className="relative flex min-w-[90px] flex-col gap-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-2 text-center text-[0.7rem]">
+          <div key={item.id} className="relative flex w-full flex-col gap-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-2 text-center text-[0.7rem]">
             <div className="h-16 overflow-hidden rounded-xl bg-white">
               <img src={item.thumb} alt={item.title} className="h-full w-full object-cover" />
             </div>

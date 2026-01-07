@@ -1,11 +1,11 @@
 "use client"
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import CompareTray, { CompareItem } from './CompareTray'
+import { useCallback, useMemo, useState } from 'react'
 import SimilarCard from './SimilarCard'
+import { useCompareTray } from './CompareTrayProvider'
 import { detectCurrencyFromRecord, formatCurrency } from '../lib/currency'
+import type { CompareItem } from './CompareTray'
 
 type CarRecord = {
   id?: string
@@ -30,9 +30,6 @@ type CarRecord = {
   priceBuy?: number
 }
 
-const MAX_COMPARE = 4
-const STORAGE_KEY = 'gaariua-compare-tray'
-
 type CarDetailLayoutProps = {
   car: CarRecord
   similarRentals: CarRecord[]
@@ -40,18 +37,16 @@ type CarDetailLayoutProps = {
 }
 
 export default function CarDetailLayout({ car, similarRentals, recommendedSales = [] }: CarDetailLayoutProps) {
-  const router = useRouter()
   const currency = detectCurrencyFromRecord(car) || 'UGX'
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
   const salePrice = Number(car.price_buy ?? car.priceBuy ?? 0)
   const normalizedCurrent = useMemo(() => normalizeListing(car), [car])
   const isRental = Boolean(car.is_for_rent || pricePerDay)
+  const { tray, addItem } = useCompareTray()
   const [activeImage, setActiveImage] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const galleryImages = car.images && car.images.length > 0 ? car.images : ['/placeholder-car.jpg']
   const [selectedDates, setSelectedDates] = useState<string[]>([])
-  const [tray, setTray] = useState<CompareItem[]>([])
-  const [trayMessage, setTrayMessage] = useState('')
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
 
   const earliestMonth = useMemo(() => startOfMonth(new Date()), [])
@@ -67,64 +62,16 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
   const features = useMemo(() => buildFeatures(car), [car])
   const reviews = useMemo(() => buildReviews(car), [car])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = window.sessionStorage.getItem(STORAGE_KEY)
-    if (!stored) return
-    try {
-      const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed)) {
-        setTray(parsed)
-      }
-    } catch (error) {
-      console.error('unable to read compare tray', error)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tray))
-  }, [tray])
-
-  useEffect(() => {
-    if (!trayMessage) return
-    if (typeof window === 'undefined') return
-    const timer = window.setTimeout(() => setTrayMessage(''), 3200)
-    return () => window.clearTimeout(timer)
-  }, [trayMessage])
-
   const addToTray = useCallback(
     (listing: CarRecord) => {
       const normalized = normalizeListing(listing)
-      setTray((prev) => {
-        const hasCurrent = prev.some((item) => item.id === normalizedCurrent.id)
-        const withCurrent = hasCurrent ? prev : [normalizedCurrent, ...prev]
-        if (withCurrent.some((entry) => entry.id === normalized.id)) {
-          return withCurrent
-        }
-        if (withCurrent.length >= MAX_COMPARE) {
-          setTrayMessage('Tray is full. Remove an item to add another.')
-          return withCurrent
-        }
-        return [...withCurrent, normalized]
-      })
+      if (!tray.some((entry) => entry.id === normalizedCurrent.id)) {
+        addItem(normalizedCurrent)
+      }
+      addItem(normalized)
     },
-    [normalizedCurrent]
+    [addItem, normalizedCurrent, tray]
   )
-
-  const removeFromTray = useCallback((id: string) => {
-    setTray((prev) => prev.filter((entry) => entry.id !== id))
-  }, [])
-
-  const clearTray = useCallback(() => {
-    setTray([])
-  }, [])
-
-  const handleCompareNow = useCallback(() => {
-    if (tray.length < 2) return
-    const ids = tray.map((entry) => entry.id).join(',')
-    router.push(`/compare?ids=${ids}`)
-  }, [router, tray])
 
   const handleDayClick = useCallback((date: Date, disabled: boolean) => {
     if (disabled) return
@@ -413,17 +360,6 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
         </section>
       </div>
 
-      {tray.length > 0 && (
-        <CompareTray
-          tray={tray}
-          max={MAX_COMPARE}
-          message={trayMessage}
-          onRemove={removeFromTray}
-          onClear={clearTray}
-          onCompareNow={handleCompareNow}
-          compareDisabled={tray.length < 2}
-        />
-      )}
     </div>
   )
 }

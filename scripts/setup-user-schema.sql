@@ -126,20 +126,41 @@ alter table if exists profiles enable row level security;
 drop policy if exists "profiles_select_own" on profiles;
 drop policy if exists "profiles_update_own" on profiles;
 drop policy if exists "profiles_admin_all" on profiles;
+drop policy if exists "profiles_public_read" on profiles;
+drop policy if exists "profiles_admin_insert" on profiles;
+drop policy if exists "profiles_admin_delete" on profiles;
 
-create policy "profiles_select_own" on profiles
+-- Helper function to check admin/support status (avoids recursion)
+create or replace function is_admin_or_support()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from profiles where id = auth.uid() and role in ('admin', 'support')
+  );
+$$;
+
+-- Public read on profiles (needed so other policies can check roles without recursion)
+create policy "profiles_public_read" on profiles
   for select
-  using (id = auth.uid());
+  using (true);
 
 create policy "profiles_update_own" on profiles
   for update
   using (id = auth.uid())
   with check (id = auth.uid());
 
-create policy "profiles_admin_all" on profiles
-  for all
-  using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','support')))
-  with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','support')));
+-- Admin insert (also allow users to insert their own profile via trigger)
+create policy "profiles_admin_insert" on profiles
+  for insert
+  with check (is_admin_or_support() or id = auth.uid());
+
+-- Admin delete
+create policy "profiles_admin_delete" on profiles
+  for delete
+  using (is_admin_or_support());
 
 -- Trigger to auto-create profile row when a new user signs up
 create or replace function public.handle_new_user()

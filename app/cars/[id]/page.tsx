@@ -13,7 +13,6 @@ type CarRecord = {
   images?: string[]
   location?: string
   is_for_rent?: boolean
-  type?: string
   price_per_day?: number
   pricePerDay?: number
   price_buy?: number
@@ -97,7 +96,7 @@ async function fetchSimilarRentals(car: CarRecord, pricePerDay: number, rangeFac
 
   const { data } = await query
   if (!data) return []
-  return data.filter((item) => item.type === 'rental' || item.is_for_rent)
+  return data.filter((item) => item.is_for_rent)
 }
 
 function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPrice: number) {
@@ -126,7 +125,7 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
       if (locB.region === currentLocation.region && locA.region !== currentLocation.region) return 1
 
       const diffA = Math.abs((a.price_per_day ?? a.pricePerDay ?? 0) - currentPrice)
-      const diffB = Math.abs((b.price_per_day ?? b.pricePerDay ?? 0) - currentPrice)
+    const recommendedSales = isRental ? [] : await fetchRecommendedSales(car)
       return diffA - diffB
     })
 }
@@ -153,7 +152,7 @@ async function fetchRecommendedSales(car: CarRecord) {
     if (!key || seen.has(key)) continue
     seen.add(key)
     unique.push(listing)
-  }
+    return data
 
   const priced = unique.filter((listing) => getSalePrice(listing) > 0)
   return prioritizeSales(priced, bodyType, currentPrice).slice(0, 6)
@@ -206,7 +205,7 @@ const BODY_TYPE_HINTS: Array<{ type: string; patterns: RegExp[] }> = [
 ]
 
 function detectBodyType(listing: CarRecord) {
-  const candidate = ((listing.body_type || listing.model || listing.title || listing.type || '') as string).toLowerCase()
+  const candidate = ((listing.body_type || listing.model || listing.title || '') as string).toLowerCase()
   for (const hint of BODY_TYPE_HINTS) {
     if (hint.patterns.some((pattern) => pattern.test(candidate))) {
       return hint.type

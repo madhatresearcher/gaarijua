@@ -20,11 +20,13 @@ alter table if exists cars
   add column if not exists rental_company_id uuid references profiles(id);
 
 alter table if exists cars
+  drop column if exists type;
+
+alter table if exists cars
   add column if not exists seller text,
   add column if not exists promoted boolean default false,
   add column if not exists promoted_expires timestamptz,
-  add column if not exists views_count integer default 0,
-  add column if not exists type text default 'rental';
+  add column if not exists views_count integer default 0;
 alter table if exists cars
   add column if not exists body_type text check (body_type in ('SUV','estate','Sedan','coupe','pickup truck'));
 

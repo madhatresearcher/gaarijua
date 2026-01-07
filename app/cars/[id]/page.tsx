@@ -19,6 +19,7 @@ type CarRecord = {
   price_buy?: number
   seller?: string
   body_type?: string
+  priceBuy?: number
 }
 
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {

@@ -25,6 +25,8 @@ alter table if exists cars
   add column if not exists promoted_expires timestamptz,
   add column if not exists views_count integer default 0,
   add column if not exists type text default 'rental';
+alter table if exists cars
+  add column if not exists body_type text check (body_type in ('SUV','estate','Sedan','coupe','pickup truck'));
 
 alter table if exists parts
   add column if not exists owner_id uuid references profiles(id);

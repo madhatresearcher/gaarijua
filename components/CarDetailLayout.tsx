@@ -36,9 +36,10 @@ const STORAGE_KEY = 'gaariua-compare-tray'
 type CarDetailLayoutProps = {
   car: CarRecord
   similarRentals: CarRecord[]
+  recommendedSales?: CarRecord[]
 }
 
-export default function CarDetailLayout({ car, similarRentals }: CarDetailLayoutProps) {
+export default function CarDetailLayout({ car, similarRentals, recommendedSales = [] }: CarDetailLayoutProps) {
   const router = useRouter()
   const currency = detectCurrencyFromRecord(car) || 'UGX'
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
@@ -373,25 +374,46 @@ export default function CarDetailLayout({ car, similarRentals }: CarDetailLayout
 
           {isRental && (
             <section className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-slate-900">Similar rentals</h2>
-              <p className="text-sm text-slate-500">Showing {similarRentals.length}</p>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {similarRentals.map((listing, index) => (
-                <SimilarCard
-                  key={listing.id ?? listing.slug ?? `similar-${index}`}
-                  listing={listing}
-                  onCompare={addToTray}
-                />
-              ))}
-            </div>
-          </section>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-slate-900">Similar rentals</h2>
+                <p className="text-sm text-slate-500">Showing {similarRentals.length}</p>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {similarRentals.map((listing, index) => (
+                  <SimilarCard
+                    key={listing.id ?? listing.slug ?? `similar-${index}`}
+                    listing={listing}
+                    onCompare={addToTray}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!isRental && recommendedSales.length > 0 && (
+            <section className="space-y-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">Recommended cars</h2>
+                  <p className="text-sm text-slate-500">Same body type first, then nearby price ranges</p>
+                </div>
+                <p className="text-sm text-slate-500">Showing {recommendedSales.length}</p>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {recommendedSales.map((listing, index) => (
+                  <SimilarCard
+                    key={listing.id ?? listing.slug ?? `recommended-${index}`}
+                    listing={listing}
+                    onCompare={addToTray}
+                  />
+                ))}
+              </div>
+            </section>
           )}
         </section>
       </div>
 
-      {isRental && (
+      {tray.length > 0 && (
         <CompareTray
           tray={tray}
           max={MAX_COMPARE}

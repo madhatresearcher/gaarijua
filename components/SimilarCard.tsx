@@ -14,6 +14,8 @@ type CarRecord = {
   rating?: number
   images?: string[]
   location?: string
+  price_buy?: number
+  priceBuy?: number
 }
 
 type SimilarCardProps = {
@@ -22,9 +24,14 @@ type SimilarCardProps = {
 }
 
 export default function SimilarCard({ listing, onCompare }: SimilarCardProps) {
-  const price = Number(listing.price_per_day ?? listing.pricePerDay ?? 0)
+  const pricePerDay = listing.price_per_day ?? listing.pricePerDay
+  const salePrice = listing.price_buy ?? listing.priceBuy
   const currency = detectCurrencyFromRecord(listing) || 'UGX'
-  const priceLabel = price ? `${formatCurrency(price, currency)}/day` : 'Price on request'
+  const priceLabel = pricePerDay
+    ? `${formatCurrency(pricePerDay, currency)}/day`
+    : salePrice
+    ? formatCurrency(salePrice, currency)
+    : 'Price on request'
   const thumbnail = listing.images && listing.images.length > 0 ? listing.images[0] : '/placeholder-car.jpg'
   const rating = listing.rating ?? 4.6
 

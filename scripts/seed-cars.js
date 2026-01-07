@@ -43,6 +43,7 @@ const listings = [
     model: 'Prado',
     year: 2019,
     description: 'Spacious 7-seater with diesel power, great for family road trips.',
+    body_type: 'SUV',
     images: ['https://topgear.co.za/wp-content/uploads/2023/09/606f7478eec984ab995aad17_Toyota-Prado-2020-119.jpg'],
     slug: 'toyota-prado-2019-rent',
     is_for_rent: true,
@@ -56,6 +57,7 @@ const listings = [
     model: 'Patrol Y62',
     year: 2021,
     description: 'V8-powered luxury SUV tuned for upcountry safaris.',
+    body_type: 'SUV',
     images: ['https://d3jvxfsgjxj1vz.cloudfront.net/news/wp-content/uploads/2024/09/11212908/new-2025-nissan-patrol-y63-first-look-review-19.webp'],
     slug: 'nissan-patrol-2021-rent',
     is_for_rent: true,
@@ -69,6 +71,7 @@ const listings = [
     model: 'GLC 300',
     year: 2022,
     description: 'Executive crossover with soft ride and premium cabin.',
+    body_type: 'SUV',
     images: [
       'https://images.cdn.autocar.co.uk/sites/autocar.co.uk/files/styles/gallery_slide/public/mercedes-glc-review-2023-03-cornering-front.jpg?itok=u11WVGPt',
       'https://images.cdn.autocar.co.uk/sites/autocar.co.uk/files/styles/gallery_slide/public/mercedes-glc-review-2023-05-cornering-rear.jpg?itok=4Jr6Mvej',
@@ -86,6 +89,7 @@ const listings = [
     model: 'Palisade',
     year: 2023,
     description: 'Three-row SUV with modern safety features and comfort.',
+    body_type: 'SUV',
     images: [
       'https://hips.hearstapps.com/hmg-prod/images/2026-hyundai-palisade-xrt-pro-pr-133-67fec710624bb.jpg?crop=1xw:1xh;center,top',
       'https://hips.hearstapps.com/hmg-prod/images/2026-hyundai-palisade-xrt-pro-pr-151-67fec71dbe17d.jpg?crop=1xw:1xh;center,top',
@@ -102,6 +106,7 @@ const listings = [
     model: 'Hilux',
     year: 2019,
     description: 'Tough pickup with 4x4 capability for utility trips.',
+    body_type: 'pickup truck',
     images: [
       'https://carsguide-res.cloudinary.com/image/upload/c_fit,h_841,w_1490,f_auto,t_cg_base/v1/editorial/segment_review%2Fhero_image%2FIMG_2130.JPG',
       'https://carsguide-res.cloudinary.com/image/upload/c_fit,h_794,w_1191,f_auto,t_cg_base/v1/editorial/IMG_2127%20copy.jpg',
@@ -120,6 +125,7 @@ const listings = [
     model: 'Defender 110',
     year: 2020,
     description: 'Refreshed Defender with modern tech and low mileage.',
+    body_type: 'SUV',
     images: [
       'https://images.prismic.io/carwow/38cac358-345e-48c7-bb5e-1b7e209811e0_2021+Land+Rover+Defender+110+front+quarter+static.jpg?auto=format&cs=tinysrgb&fit=max&q=60',
       'https://images.prismic.io/carwow/c43eed8d-59c5-4c39-aed9-932433586cd9_2021+Land+Rover+Defender+110+rear+quarter+static.jpg?auto=format&cs=tinysrgb&fit=max&q=60',
@@ -137,6 +143,7 @@ const listings = [
     model: 'GLE 350',
     year: 2021,
     description: 'Sporty luxury SUV with adaptive cruise and premium cabin.',
+    body_type: 'SUV',
     images: [
       'https://hips.hearstapps.com/hmg-prod/images/2024-mercedes-benz-gle450-exterior-102-677eca51945f8.jpg?crop=0.704xw:0.525xh;0.277xw,0.348xh&resize=1400:*',
       'https://hips.hearstapps.com/hmg-prod/images/2024-mercedes-benz-gle450-exterior-104-677eca533f6d7.jpg?crop=1xw:1xh;center,top',
@@ -154,6 +161,7 @@ const listings = [
     model: 'Land Cruiser 200',
     year: 2019,
     description: 'Classic Land Cruiser with trusted V8 and deployment-ready setup.',
+    body_type: 'SUV',
     images: [
       'https://hips.hearstapps.com/hmg-prod/images/tmna-2191021-land-cruiser-200-heritage-0001-1572378175.jpg',
       'https://hips.hearstapps.com/hmg-prod/images/2020-toyota-land-cruiser-heritage-edition-102-1549575831.jpg',
@@ -173,6 +181,7 @@ const listings = [
     model: 'RX 350',
     year: 2018,
     description: 'Luxury crossover with smooth V6 and heat/ventilated seats.',
+    body_type: 'SUV',
     images: [
       'https://hips.hearstapps.com/hmg-prod/images/2023-lexus-rx-350-f-sport-110-660af2a051ca9.jpeg?crop=1xw:1xh;center,top',
       'https://hips.hearstapps.com/hmg-prod/images/2023-lexus-rx-350-f-sport-105-660af299edbef.jpg?crop=1xw:1xh;center,top',
@@ -192,6 +201,7 @@ const listings = [
     model: 'Ranger Wildtrak',
     year: 2019,
     description: 'High-spec pickup with leather cabin, turbo diesel, and alloy wheels.',
+    body_type: 'pickup truck',
     images: [
       'https://hips.hearstapps.com/hmg-prod/images/2024-ford-ranger-lariat-171-66fd5b726377f.jpg?crop=1xw:1xh;center,top',
       'https://hips.hearstapps.com/hmg-prod/images/2024-ford-ranger-lariat-184-66fd5b7826597.jpg?crop=1xw:1xh;center,top',
@@ -204,6 +214,57 @@ const listings = [
     price_buy: 45000.0,
     location: 'Gulu, Uganda',
     mileage: 67000,
+  },
+  {
+    title: 'Audi A6 Avant — 2022 Estate Sale',
+    brand: 'Audi',
+    model: 'A6 Avant',
+    year: 2022,
+    description: 'Executive estate with flowing roofline, adaptive cruise, and heated seats.',
+    body_type: 'estate',
+    images: [
+      'https://cdn.motor1.com/images/mgl/V7eqJ/s1/2022-audi-a6-avant.jpg',
+      'https://cdn.motor1.com/images/mgl/UKb6l/s1/2022-audi-a6-avant-interior.jpg',
+    ],
+    slug: 'audi-a6-avant-2022-sale',
+    is_for_rent: false,
+    price_buy: 125000.0,
+    location: 'Kampala, Uganda',
+    mileage: 28000,
+  },
+  {
+    title: 'Mercedes-Benz E 300 — 2020 Sedan Sale',
+    brand: 'Mercedes-Benz',
+    model: 'E 300',
+    year: 2020,
+    description: 'Refined executive sedan with AIRMATIC suspension, burled wood, and ambient lighting.',
+    body_type: 'Sedan',
+    images: [
+      'https://cdn.motor1.com/images/mgl/6v4p0/s1/2020-mercedes-benz-e300.jpg',
+      'https://cdn.motor1.com/images/mgl/3vWW2/s1/2021-mercedes-benz-e300-interior.jpg',
+    ],
+    slug: 'mercedes-e300-2020-sale',
+    is_for_rent: false,
+    price_buy: 97000.0,
+    location: 'Mbale, Uganda',
+    mileage: 42000,
+  },
+  {
+    title: 'Toyota GR86 — 2022 Track Edition',
+    brand: 'Toyota',
+    model: 'GR86',
+    year: 2022,
+    description: 'Lightweight coupe with flat-four engine, manual gearbox, and sport-tuned chassis.',
+    body_type: 'coupe',
+    images: [
+      'https://cdn.motor1.com/images/mgl/0ANpK/s1/2022-toyota-gr86.jpg',
+      'https://cdn.motor1.com/images/mgl/2DoIQ/s1/2022-toyota-gr86-interior.jpg',
+    ],
+    slug: 'toyota-gr86-2022-sale',
+    is_for_rent: false,
+    price_buy: 46000.0,
+    location: 'Jinja, Uganda',
+    mileage: 15000,
   },
 ]
 

@@ -18,6 +18,7 @@ type CarRecord = {
   pricePerDay?: number
   price_buy?: number
   seller?: string
+  body_type?: string
 }
 
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -43,27 +44,34 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
   }
 
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
-  const range20 = await fetchSimilarRentals(car, pricePerDay, 0.2)
-  let similarRentals = range20
+  const isRental = Boolean(car.is_for_rent || pricePerDay)
 
-  if (similarRentals.length < 4) {
-    const range40 = await fetchSimilarRentals(car, pricePerDay, 0.4)
-    const deduped: CarRecord[] = []
-    const seen = new Set<string>()
-    for (const listing of [...similarRentals, ...range40]) {
-      const key = listing.id || listing.slug || ''
-      if (!key || seen.has(key)) continue
-      if (key === car.id || key === car.slug) continue
-      seen.add(key)
-      deduped.push(listing)
+  let similarRentals: CarRecord[] = []
+  if (isRental) {
+    const range20 = await fetchSimilarRentals(car, pricePerDay, 0.2)
+    similarRentals = range20
+
+    if (similarRentals.length < 4) {
+      const range40 = await fetchSimilarRentals(car, pricePerDay, 0.4)
+      const deduped: CarRecord[] = []
+      const seen = new Set<string>()
+      for (const listing of [...similarRentals, ...range40]) {
+        const key = listing.id || listing.slug || ''
+        if (!key || seen.has(key)) continue
+        if (key === car.id || key === car.slug) continue
+        seen.add(key)
+        deduped.push(listing)
+      }
+      similarRentals = deduped
     }
-    similarRentals = deduped
+
+    similarRentals = prioritizeSimilar(similarRentals, car, pricePerDay)
+    similarRentals = similarRentals.slice(0, 6)
   }
 
-  similarRentals = prioritizeSimilar(similarRentals, car, pricePerDay)
-  similarRentals = similarRentals.slice(0, 6)
+  const recommendedSales = isRental ? [] : await fetchRecommendedSales(car)
 
-  return <CarDetailLayout car={car} similarRentals={similarRentals} />
+  return <CarDetailLayout car={car} similarRentals={similarRentals} recommendedSales={recommendedSales} />
 }
 
 async function fetchSimilarRentals(car: CarRecord, pricePerDay: number, rangeFactor: number) {
@@ -120,6 +128,90 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
       const diffB = Math.abs((b.price_per_day ?? b.pricePerDay ?? 0) - currentPrice)
       return diffA - diffB
     })
+}
+
+async function fetchRecommendedSales(car: CarRecord) {
+  const currentPrice = getSalePrice(car)
+  const bodyType = detectBodyType(car)
+
+  const { data } = await supabaseServer
+    .from('cars')
+    .select('*')
+    .eq('is_for_rent', false)
+    .neq('id', car.id)
+    .neq('slug', car.slug)
+    .order('created_at', { ascending: false })
+    .limit(24)
+
+  if (!data) return []
+
+  const unique: CarRecord[] = []
+  const seen = new Set<string>()
+  for (const listing of data) {
+    const key = listing.id || listing.slug
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    unique.push(listing)
+  }
+
+  const priced = unique.filter((listing) => getSalePrice(listing) > 0)
+  return prioritizeSales(priced, bodyType, currentPrice).slice(0, 6)
+}
+
+function prioritizeSales(listings: CarRecord[], targetBody: string, targetPrice: number) {
+  return listings.sort((a, b) => {
+    const bodyA = detectBodyType(a)
+    const bodyB = detectBodyType(b)
+    const sameBodyA = targetBody && bodyA === targetBody
+    const sameBodyB = targetBody && bodyB === targetBody
+    if (sameBodyA !== sameBodyB) return sameBodyA ? -1 : 1
+
+    const diffA = Math.abs(getSalePrice(a) - targetPrice)
+    const diffB = Math.abs(getSalePrice(b) - targetPrice)
+    if (diffA !== diffB) return diffA - diffB
+
+    return 0
+  })
+}
+
+function getSalePrice(listing: CarRecord) {
+  return Number(listing.price_buy ?? listing.priceBuy ?? 0)
+}
+
+const BODY_TYPE_HINTS: Array<{ type: string; patterns: RegExp[] }> = [
+  {
+    type: 'suv',
+    patterns: [
+      /suv/i,
+      /sport utility/i,
+      /land cruiser/i,
+      /defender/i,
+      /prado/i,
+      /patrol/i,
+      /gle/i,
+      /glc/i,
+      /palisade/i,
+      /^rx/i,
+    ],
+  },
+  {
+    type: 'pickup',
+    patterns: [/pickup/i, /truck/i, /ranger/i, /hilux/i, /wildtrak/i],
+  },
+  {
+    type: 'sedan',
+    patterns: [/sedan/i, /limousine/i, /coupe/i, /luxury/i, /e-class/i, /c-class/i],
+  },
+]
+
+function detectBodyType(listing: CarRecord) {
+  const candidate = ((listing.body_type || listing.model || listing.title || listing.type || '') as string).toLowerCase()
+  for (const hint of BODY_TYPE_HINTS) {
+    if (hint.patterns.some((pattern) => pattern.test(candidate))) {
+      return hint.type
+    }
+  }
+  return 'other'
 }
 
 

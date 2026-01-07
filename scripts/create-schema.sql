@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.cars (
   promoted_expires timestamptz,
   views_count integer DEFAULT 0,
   type text DEFAULT 'rental',
+  body_type text check (body_type in ('SUV','estate','Sedan','coupe','pickup truck')),
   price_per_day numeric(10,2),
   price_buy numeric(12,2),
   location text,

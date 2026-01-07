@@ -1,4 +1,5 @@
 "use client"
+import { useState } from 'react'
 import Link from 'next/link'
 import { formatCurrency, detectCurrencyFromRecord } from '../lib/currency'
 
@@ -8,6 +9,7 @@ export default function PartCard({ part }: { part: any }) {
   const detected = detectCurrencyFromRecord(part)
   const currency = detected || 'UGX'
   const formatted = formatCurrency(price, currency)
+  const [compareActive, setCompareActive] = useState(false)
 
   return (
     <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
@@ -25,23 +27,27 @@ export default function PartCard({ part }: { part: any }) {
         </div>
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex items-end justify-between gap-3">
         <Link
           href={`/parts/${part.id || part.slug}`}
-          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
+          className="inline-flex flex-1 items-center justify-center rounded-[12px] bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-sm transition hover:bg-slate-800"
         >
           Details
         </Link>
         <button
           type="button"
-          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
+          onClick={() => setCompareActive((prev) => !prev)}
+          className={`inline-flex items-center gap-2 rounded-[12px] border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.25em] transition ${
+            compareActive
+              ? 'border-transparent bg-slate-900/10 text-slate-900 shadow-sm'
+              : 'border-slate-200 bg-white text-slate-500'
+          }`}
         >
-          Enquire
-        </button>
-        <button
-          type="button"
-          className="ml-auto rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-        >
+          <span
+            className={`h-2.5 w-2.5 rounded-full border transition ${
+              compareActive ? 'border-slate-900 bg-slate-900' : 'border-slate-300'
+            }`}
+          ></span>
           Compare
         </button>
       </div>

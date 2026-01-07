@@ -125,7 +125,7 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
       if (locB.region === currentLocation.region && locA.region !== currentLocation.region) return 1
 
       const diffA = Math.abs((a.price_per_day ?? a.pricePerDay ?? 0) - currentPrice)
-    const recommendedSales = isRental ? [] : await fetchRecommendedSales(car)
+      const diffB = Math.abs((b.price_per_day ?? b.pricePerDay ?? 0) - currentPrice)
       return diffA - diffB
     })
 }
@@ -152,7 +152,7 @@ async function fetchRecommendedSales(car: CarRecord) {
     if (!key || seen.has(key)) continue
     seen.add(key)
     unique.push(listing)
-    return data
+  }
 
   const priced = unique.filter((listing) => getSalePrice(listing) > 0)
   return prioritizeSales(priced, bodyType, currentPrice).slice(0, 6)

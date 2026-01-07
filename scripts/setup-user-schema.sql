@@ -19,8 +19,18 @@ alter table if exists cars
   add column if not exists owner_id uuid references profiles(id),
   add column if not exists rental_company_id uuid references profiles(id);
 
+alter table if exists cars
+  add column if not exists seller text,
+  add column if not exists promoted boolean default false,
+  add column if not exists promoted_expires timestamptz,
+  add column if not exists views_count integer default 0,
+  add column if not exists type text default 'rental';
+
 alter table if exists parts
   add column if not exists owner_id uuid references profiles(id);
+
+alter table if exists parts
+  add column if not exists seller text;
 
 -- Rentals and sales bookings history table.
 create table if not exists bookings (
@@ -109,5 +119,49 @@ create policy "parts_owner_or_high_level" on parts
     )
     or parts.owner_id = auth.uid()
   );
+
+-- Allow users to read their own profile
+alter table if exists profiles enable row level security;
+
+drop policy if exists "profiles_select_own" on profiles;
+drop policy if exists "profiles_update_own" on profiles;
+drop policy if exists "profiles_admin_all" on profiles;
+
+create policy "profiles_select_own" on profiles
+  for select
+  using (id = auth.uid());
+
+create policy "profiles_update_own" on profiles
+  for update
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+create policy "profiles_admin_all" on profiles
+  for all
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','support')))
+  with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin','support')));
+
+-- Trigger to auto-create profile row when a new user signs up
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, email, display_name, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1)),
+    'user'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 COMMIT;

@@ -31,11 +31,11 @@ function loadEnv() {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const users = [
-    { id: '11111111-1111-1111-1111-111111111111', email: 'admin@gaarijua.com', password: 'Admin123!', role: 'admin' },
-    { id: '22222222-2222-2222-2222-222222222222', email: 'support@gaarijua.com', password: 'Support123!', role: 'support' },
-    { id: '33333333-3333-3333-3333-333333333333', email: 'vendor1@gaarijua.com', password: 'Vendor123!', role: 'vendor' },
-    { id: '44444444-4444-4444-4444-444444444444', email: 'vendor2@gaarijua.com', password: 'Vendor123!', role: 'vendor' },
-    { id: '55555555-5555-5555-5555-555555555555', email: 'rental@gaarijua.com', password: 'Rental123!', role: 'vendor' },
+    { id: '11111111-1111-1111-1111-111111111111', email: 'admin@gaarijua.com', password: 'Admin123!', role: 'admin', display_name: 'Admin User' },
+    { id: '22222222-2222-2222-2222-222222222222', email: 'support@gaarijua.com', password: 'Support123!', role: 'support', display_name: 'Support Team' },
+    { id: '33333333-3333-3333-3333-333333333333', email: 'vendor1@gaarijua.com', password: 'Vendor123!', role: 'vendor', display_name: 'Vendor One' },
+    { id: '44444444-4444-4444-4444-444444444444', email: 'vendor2@gaarijua.com', password: 'Vendor123!', role: 'vendor', display_name: 'Vendor Two' },
+    { id: '55555555-5555-5555-5555-555555555555', email: 'rental@gaarijua.com', password: 'Rental123!', role: 'vendor', display_name: 'Rental Company' },
   ];
 
   for (const user of users) {
@@ -44,13 +44,26 @@ function loadEnv() {
       email: user.email,
       password: user.password,
       email_confirm: true,
-      user_metadata: { role: user.role },
+      user_metadata: { role: user.role, full_name: user.display_name },
     };
     const { data, error } = await supabase.auth.admin.createUser(body);
     if (error) {
       console.error('Failed to create user', user.email, error.message);
     } else {
       console.log('Created/updated user', data.user.id, data.user.email);
+    }
+
+    // Also upsert into profiles table
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      email: user.email,
+      display_name: user.display_name,
+      role: user.role,
+    }, { onConflict: 'id' });
+    if (profileError) {
+      console.error('Failed to upsert profile', user.email, profileError.message);
+    } else {
+      console.log('Upserted profile', user.email);
     }
   }
 })();

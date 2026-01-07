@@ -40,7 +40,8 @@ function loadEnv() {
   }
 
   const { Client } = require('pg');
-  const sqlPath = path.resolve(__dirname, 'seed-gaarijua.sql');
+  const sqlFile = process.argv[2] || process.env.SQL_FILE || 'seed-gaarijua.sql';
+  const sqlPath = path.resolve(__dirname, sqlFile);
   if (!fs.existsSync(sqlPath)) {
     console.error('SQL file not found:', sqlPath);
     process.exit(1);

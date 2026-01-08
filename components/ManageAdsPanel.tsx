@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase-client'
 import { useSupabaseUser } from '../hooks/useSupabaseUser'
 
@@ -62,6 +62,8 @@ const generateSlug = (value: string) =>
     .replace(/^-+|-+$/g, '')
     .concat('-', Date.now().toString().slice(-4))
 
+const CAR_IMAGE_BUCKET = 'car-images'
+
 export default function ManageAdsPanel() {
   const { user } = useSupabaseUser()
   const [form, setForm] = useState(INITIAL_FORM)
@@ -71,13 +73,46 @@ export default function ManageAdsPanel() {
   const [message, setMessage] = useState<string | null>(null)
   const [updates, setUpdates] = useState<Record<string, Partial<EditableListing> & { price?: string }>>({})
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [imageInputs, setImageInputs] = useState([''])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const [imageInputs, setImageInputs] = useState<string[]>([''])
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const handleImageChange = (index: number, value: string) => {
-    setImageInputs((prev) => prev.map((entry, idx) => (idx === index ? value : entry)))
+  const uploadFilesToStorage = async () => {
+    if (!selectedFiles.length || !user) return []
+    const uploaded: string[] = []
+    for (const file of selectedFiles) {
+      const sanitizedFileName = file.name.replace(/[^a-z0-9.]/gi, '-')
+      const filePath = `cars/${user.id}/${Date.now()}-${sanitizedFileName}`
+      const { data, error } = await supabase.storage
+        .from(CAR_IMAGE_BUCKET)
+        .upload(filePath, file, { cacheControl: '3600', upsert: false })
+      if (error) {
+        throw error
+      }
+      const { data: urlData } = supabase.storage.from(CAR_IMAGE_BUCKET).getPublicUrl(data.path)
+      uploaded.push(urlData.publicUrl)
+    }
+    return uploaded
   }
 
-  const addImageInput = () => setImageInputs((prev) => [...prev, ''])
+
+  const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) {
+      setSelectedFiles([])
+      return
+    }
+    setSelectedFiles(Array.from(files))
+  }
+
+  const addImageInput = () => {
+    setImageInputs((prev) => [...prev, ''])
+  }
+
+  const handleImageChange = (index: number, value: string) => {
+    setImageInputs((prev) => prev.map((input, idx) => (idx === index ? value : input)))
+  }
 
   const removeImageInput = (index: number) => {
     setImageInputs((prev) => prev.filter((_, idx) => idx !== index))
@@ -128,14 +163,30 @@ export default function ManageAdsPanel() {
       setMessage('Sign in to create ads.')
       return
     }
-    const sanitizedImages = imageInputs.map((entry) => entry.trim()).filter(Boolean)
+    let uploadedImages: string[] = []
+    try {
+      if (selectedFiles.length) {
+        setUploadingImages(true)
+        uploadedImages = await uploadFilesToStorage()
+      }
+    } catch (error) {
+      setUploadingImages(false)
+      setMessage((error as Error).message || 'Failed to upload photos.')
+      return
+    } finally {
+      setUploadingImages(false)
+    }
+    const manualImageUrls = imageInputs
+      .map((url) => url.trim())
+      .filter((url): url is string => url.length > 0)
+
     const payload = {
       title: form.title.trim(),
       brand: form.brand.trim() || null,
       model: form.model.trim() || null,
       year: form.year ? Number(form.year) : null,
       description: form.description.trim() || null,
-      images: sanitizedImages,
+      images: [...uploadedImages, ...manualImageUrls],
       slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
       body_type: form.body_type,
       location: form.location || 'Kampala, Uganda',
@@ -155,7 +206,11 @@ export default function ManageAdsPanel() {
     }
     setMessage('Listing created successfully!')
     setForm(INITIAL_FORM)
+    setSelectedFiles([])
     setImageInputs([''])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
     void fetchAds()
   }
 

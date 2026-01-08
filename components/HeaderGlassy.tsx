@@ -130,16 +130,18 @@ export default function HeaderGlassy() {
               </Link>
             </nav>
 
-            <button
-              type="button"
-              className={`hidden md:inline-flex items-center rounded-md px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-                scrolled
-                  ? 'border border-white/30 bg-white/10 text-slate-900/90'
-                  : 'border border-slate-200 bg-white text-slate-900'
-              }`}
-            >
-              {user ? userLabel : 'Host Status'}
-            </button>
+            {user && (
+              <button
+                type="button"
+                className={`hidden md:inline-flex items-center rounded-md px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-300 ${
+                  scrolled
+                    ? 'border border-white/30 bg-white/10 text-slate-900/90'
+                    : 'border border-slate-200 bg-white text-slate-900'
+                }`}
+              >
+                {userLabel}
+              </button>
+            )}
 
             <button
               type="button"

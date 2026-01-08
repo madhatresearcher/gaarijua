@@ -38,9 +38,11 @@ export default function HeroHeader() {
             <Link href="/parts" className="hidden sm:inline text-white/85 hover:text-white transition-colors">
               Parts
             </Link>
-            <Link href="/host" className="text-white/85 hover:text-white transition-colors hidden md:inline">
-              {user ? userLabel : 'Host Status'}
-            </Link>
+            {user && (
+              <Link href="/host" className="text-white/85 hover:text-white transition-colors hidden md:inline">
+                {userLabel}
+              </Link>
+            )}
             {user ? (
               <button
                 type="button"

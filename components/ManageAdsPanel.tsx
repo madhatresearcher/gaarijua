@@ -70,6 +70,18 @@ export default function ManageAdsPanel() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [updates, setUpdates] = useState<Record<string, Partial<EditableListing> & { price?: string }>>({})
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [imageInputs, setImageInputs] = useState([''])
+
+  const handleImageChange = (index: number, value: string) => {
+    setImageInputs((prev) => prev.map((entry, idx) => (idx === index ? value : entry)))
+  }
+
+  const addImageInput = () => setImageInputs((prev) => [...prev, ''])
+
+  const removeImageInput = (index: number) => {
+    setImageInputs((prev) => prev.filter((_, idx) => idx !== index))
+  }
 
   const fetchAds = useCallback(async () => {
     if (!user) return
@@ -116,13 +128,14 @@ export default function ManageAdsPanel() {
       setMessage('Sign in to create ads.')
       return
     }
+    const sanitizedImages = imageInputs.map((entry) => entry.trim()).filter(Boolean)
     const payload = {
       title: form.title.trim(),
       brand: form.brand.trim() || null,
       model: form.model.trim() || null,
       year: form.year ? Number(form.year) : null,
       description: form.description.trim() || null,
-      images: [],
+      images: sanitizedImages,
       slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
       body_type: form.body_type,
       location: form.location || 'Kampala, Uganda',
@@ -142,6 +155,7 @@ export default function ManageAdsPanel() {
     }
     setMessage('Listing created successfully!')
     setForm(INITIAL_FORM)
+    setImageInputs([''])
     void fetchAds()
   }
 
@@ -207,148 +221,202 @@ export default function ManageAdsPanel() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 py-12 space-y-10">
-        <section className="rounded-3xl bg-white/90 p-6 shadow-lg">
-          <div className="flex items-center justify-between space-x-4">
+        <section className="rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-lg">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Ad Control</p>
-              <h1 className="text-2xl font-semibold text-slate-900">Create a new listing</h1>
+              <p className="text-xs uppercase tracking-[0.4em] text-amber-200/80">Ad Control</p>
+              <h1 className="text-3xl font-semibold">Host dashboard</h1>
+              <p className="mt-1 max-w-3xl text-sm text-amber-100/80">
+                Create, refresh, and monitor your live inventory without leaving this corner of Gaarijua.
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-100/70">
+                Owner ID: {user.id.slice(0, 8)}…
+              </p>
             </div>
-            <span className="text-sm font-semibold text-slate-500">Owner ID: {user.id.slice(0, 8)}…</span>
-          </div>
-          <form className="mt-6 space-y-4" onSubmit={handleCreateListing}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Title</span>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(event) => handleFormChange('title', event.target.value)}
-                  required
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:border-slate-900 focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Type</span>
-                <select
-                  value={form.type}
-                  onChange={(event) => handleFormChange('type', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
-                >
-                  <option value="rent">Rent</option>
-                  <option value="buy">Sell</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Brand</span>
-                <input
-                  type="text"
-                  value={form.brand}
-                  onChange={(event) => handleFormChange('brand', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Model</span>
-                <input
-                  type="text"
-                  value={form.model}
-                  onChange={(event) => handleFormChange('model', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Year</span>
-                <input
-                  type="number"
-                  value={form.year}
-                  onChange={(event) => handleFormChange('year', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Body type</span>
-                <select
-                  value={form.body_type}
-                  onChange={(event) => handleFormChange('body_type', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
-                >
-                  {BODY_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Location</span>
-                <input
-                  type="text"
-                  value={form.location}
-                  onChange={(event) => handleFormChange('location', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                  {form.type === 'rent' ? 'Price / day (UGX)' : 'Sale price (UGX)'}
-                </span>
-                <input
-                  type="number"
-                  value={form.price}
-                  onChange={(event) => handleFormChange('price', event.target.value)}
-                  min="0"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="block col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Description</span>
-                <textarea
-                  value={form.description}
-                  onChange={(event) => handleFormChange('description', event.target.value)}
-                  rows={3}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                ></textarea>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Status</span>
-                <select
-                  value={form.status}
-                  onChange={(event) => handleFormChange('status', event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
-                >
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {message && (
-              <p className="text-sm font-semibold text-emerald-600">{message}</p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full border border-amber-200/40 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.4em] text-amber-100">
+                {activeListings.length} live ads
+              </div>
               <button
-                type="submit"
-                disabled={saving}
-                className="rounded-full bg-slate-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setShowCreateForm((prev) => !prev)}
+                className="rounded-full bg-amber-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition hover:bg-amber-300"
               >
-                {saving ? 'Saving…' : 'Create listing'}
+                {showCreateForm ? 'Close form' : 'Create ad'}
               </button>
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">{activeListings.length} live ads</span>
             </div>
-          </form>
+          </div>
+          {message && (
+            <p className="mt-4 text-sm font-semibold text-amber-100">{message}</p>
+          )}
+          {showCreateForm && (
+            <div className="mt-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-xl">
+              <form className="space-y-4" onSubmit={handleCreateListing}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Title</span>
+                    <input
+                      type="text"
+                      value={form.title}
+                      onChange={(event) => handleFormChange('title', event.target.value)}
+                      required
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Type</span>
+                    <select
+                      value={form.type}
+                      onChange={(event) => handleFormChange('type', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
+                    >
+                      <option value="rent">Rent</option>
+                      <option value="buy">Sell</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Brand</span>
+                    <input
+                      type="text"
+                      value={form.brand}
+                      onChange={(event) => handleFormChange('brand', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Model</span>
+                    <input
+                      type="text"
+                      value={form.model}
+                      onChange={(event) => handleFormChange('model', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Year</span>
+                    <input
+                      type="number"
+                      value={form.year}
+                      onChange={(event) => handleFormChange('year', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Body type</span>
+                    <select
+                      value={form.body_type}
+                      onChange={(event) => handleFormChange('body_type', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
+                    >
+                      {BODY_TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Location</span>
+                    <input
+                      type="text"
+                      value={form.location}
+                      onChange={(event) => handleFormChange('location', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      {form.type === 'rent' ? 'Price / day (UGX)' : 'Sale price (UGX)'}
+                    </span>
+                    <input
+                      type="number"
+                      value={form.price}
+                      onChange={(event) => handleFormChange('price', event.target.value)}
+                      min="0"
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Photo URLs</span>
+                    <button
+                      type="button"
+                      onClick={addImageInput}
+                      className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-900"
+                    >
+                      Add URL
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {imageInputs.map((value, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={value}
+                          onChange={(event) => handleImageChange(index, event.target.value)}
+                          placeholder="https://example.com/photo.jpg"
+                          className="flex-1 rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                        />
+                        {imageInputs.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeImageInput(index)}
+                            className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-500"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Description</span>
+                    <textarea
+                      value={form.description}
+                      onChange={(event) => handleFormChange('description', event.target.value)}
+                      rows={3}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
+                    ></textarea>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Status</span>
+                    <select
+                      value={form.status}
+                      onChange={(event) => handleFormChange('status', event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none"
+                    >
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-full bg-slate-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saving ? 'Saving…' : 'Create listing'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </section>
 
         <section className="space-y-6">

@@ -231,6 +231,7 @@ const listings = [
     price_buy: 125000.0,
     location: 'Kampala, Uganda',
     mileage: 28000,
+    status: 'closed',
   },
   {
     title: 'Mercedes-Benz E 300 — 2020 Sedan Sale',
@@ -274,6 +275,7 @@ async function seedCars() {
       ...listing,
       price_per_day: listing.is_for_rent ? listing.price_per_day : null,
       price_buy: listing.is_for_rent ? null : listing.price_buy ?? null,
+      status: listing.status ?? 'active',
     }))
 
     const { data, error } = await supabase

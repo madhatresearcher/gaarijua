@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.cars (
   price_buy numeric(12,2),
   location text,
   mileage integer,
+  status text not null default 'active' check (status in ('active','closed','draft')),
   created_at timestamptz DEFAULT now()
 );
 

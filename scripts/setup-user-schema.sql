@@ -29,6 +29,8 @@ alter table if exists cars
   add column if not exists views_count integer default 0;
 alter table if exists cars
   add column if not exists body_type text check (body_type in ('SUV','estate','Sedan','coupe','pickup truck'));
+alter table if exists cars
+  add column if not exists status text not null default 'active' check (status in ('active','closed','draft'));
 
 alter table if exists parts
   add column if not exists owner_id uuid references profiles(id);

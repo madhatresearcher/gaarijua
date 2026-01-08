@@ -138,7 +138,7 @@ export default function HeaderGlassy() {
                   : 'border border-slate-200 bg-white text-slate-900'
               }`}
             >
-              {user ? `Host Status · ${userLabel}` : 'Host Status'}
+              {user ? userLabel : 'Host Status'}
             </button>
 
             <button

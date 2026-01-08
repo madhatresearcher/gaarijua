@@ -39,7 +39,7 @@ export default function HeroHeader() {
               Parts
             </Link>
             <Link href="/host" className="text-white/85 hover:text-white transition-colors hidden md:inline">
-              {user ? `Host Status · ${userLabel}` : 'Host Status'}
+              {user ? userLabel : 'Host Status'}
             </Link>
             {user ? (
               <button

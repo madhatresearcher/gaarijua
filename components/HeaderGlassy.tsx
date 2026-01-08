@@ -1,12 +1,14 @@
 "use client"
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSupabaseUser } from '../hooks/useSupabaseUser'
 
 // HeaderGlassy uses a 10px scroll threshold to toggle between solid and frosted-glass classes.
 export default function HeaderGlassy() {
   const [scrolled, setScrolled] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const accountMenuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10)
@@ -47,6 +49,17 @@ export default function HeaderGlassy() {
   const searchPillClasses = `flex w-full max-w-3xl items-center gap-2 rounded-full shadow-sm px-2 py-1 transition-all duration-300 ${
     scrolled ? 'bg-white/80 backdrop-blur-sm' : 'bg-white'
   }`
+
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   return (
     <header className={headerClasses}>
@@ -131,16 +144,32 @@ export default function HeaderGlassy() {
             </nav>
 
             {user && (
-              <button
-                type="button"
-                className={`hidden md:inline-flex items-center rounded-md px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-                  scrolled
-                    ? 'border border-white/30 bg-white/10 text-slate-900/90'
-                    : 'border border-slate-200 bg-white text-slate-900'
-                }`}
-              >
-                {userLabel}
-              </button>
+              <div className="relative" ref={accountMenuRef}>
+                <button
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded={accountMenuOpen}
+                  onClick={() => setAccountMenuOpen((prev) => !prev)}
+                  className={`hidden md:inline-flex items-center rounded-md px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-300 ${
+                    scrolled
+                      ? 'border border-white/30 bg-white/10 text-slate-900/90'
+                      : 'border border-slate-200 bg-white text-slate-900'
+                  }`}
+                >
+                  {userLabel}
+                </button>
+                {accountMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-slate-200 bg-white/95 p-3 text-sm shadow-2xl shadow-slate-900/20">
+                    <Link
+                      href="/host"
+                      className="block rounded-xl px-3 py-2 font-semibold text-slate-900 hover:bg-slate-100"
+                      onClick={() => setAccountMenuOpen(false)}
+                    >
+                      Manage ads
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
 
             <button

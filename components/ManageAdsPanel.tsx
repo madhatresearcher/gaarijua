@@ -306,7 +306,7 @@ export default function ManageAdsPanel() {
           )}
           {showCreateForm && (
             <div className="mt-6 rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-xl">
-              <form className="space-y-4" onSubmit={handleCreateListing}>
+              <form className="space-y-4 text-slate-900" onSubmit={handleCreateListing}>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Title</span>

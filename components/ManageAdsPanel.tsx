@@ -75,7 +75,6 @@ export default function ManageAdsPanel() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
-  const [imageInputs, setImageInputs] = useState<string[]>([''])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const uploadFilesToStorage = async () => {
@@ -104,18 +103,6 @@ export default function ManageAdsPanel() {
       return
     }
     setSelectedFiles(Array.from(files))
-  }
-
-  const addImageInput = () => {
-    setImageInputs((prev) => [...prev, ''])
-  }
-
-  const handleImageChange = (index: number, value: string) => {
-    setImageInputs((prev) => prev.map((input, idx) => (idx === index ? value : input)))
-  }
-
-  const removeImageInput = (index: number) => {
-    setImageInputs((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   const fetchAds = useCallback(async () => {
@@ -176,17 +163,13 @@ export default function ManageAdsPanel() {
     } finally {
       setUploadingImages(false)
     }
-    const manualImageUrls = imageInputs
-      .map((url) => url.trim())
-      .filter((url): url is string => url.length > 0)
-
     const payload = {
       title: form.title.trim(),
       brand: form.brand.trim() || null,
       model: form.model.trim() || null,
       year: form.year ? Number(form.year) : null,
       description: form.description.trim() || null,
-      images: [...uploadedImages, ...manualImageUrls],
+      images: uploadedImages,
       slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
       body_type: form.body_type,
       location: form.location || 'Kampala, Uganda',
@@ -207,7 +190,6 @@ export default function ManageAdsPanel() {
     setMessage('Listing created successfully!')
     setForm(INITIAL_FORM)
     setSelectedFiles([])
-    setImageInputs([''])
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -400,38 +382,22 @@ export default function ManageAdsPanel() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Photo URLs</span>
-                    <button
-                      type="button"
-                      onClick={addImageInput}
-                      className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-900"
-                    >
-                      Add URL
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {imageInputs.map((value, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="url"
-                          value={value}
-                          onChange={(event) => handleImageChange(index, event.target.value)}
-                          placeholder="https://example.com/photo.jpg"
-                          className="flex-1 rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
-                        />
-                        {imageInputs.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeImageInput(index)}
-                            className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-500"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Upload photos</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleFileSelection}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
+                    />
+                    {selectedFiles.length > 0 && (
+                      <p className="mt-1 text-xs uppercase tracking-[0.3em] text-slate-500">
+                        {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                  </label>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

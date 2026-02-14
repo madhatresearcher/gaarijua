@@ -35,6 +35,11 @@ type EditableListing = {
   description: string | null
 }
 
+type UploadedImage = {
+  path: string
+  publicUrl: string
+}
+
 const BODY_TYPE_OPTIONS = ['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck']
 const INITIAL_FORM: ManageFormShape = {
   title: '',
@@ -78,21 +83,41 @@ export default function ManageAdsPanel() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const uploadFilesToStorage = async () => {
-    if (!selectedFiles.length || !user) return []
-    const uploaded: string[] = []
-    for (const file of selectedFiles) {
-      const sanitizedFileName = file.name.replace(/[^a-z0-9.]/gi, '-')
-      const filePath = `cars/${user.id}/${Date.now()}-${sanitizedFileName}`
-      const { data, error } = await supabase.storage
-        .from(CAR_IMAGE_BUCKET)
-        .upload(filePath, file, { cacheControl: '3600', upsert: false })
-      if (error) {
-        throw error
-      }
-      const { data: urlData } = supabase.storage.from(CAR_IMAGE_BUCKET).getPublicUrl(data.path)
-      uploaded.push(urlData.publicUrl)
+  const cleanupUploadedFiles = async (paths: string[]) => {
+    if (!paths.length) return
+    const { error } = await supabase.storage.from(CAR_IMAGE_BUCKET).remove(paths)
+    if (error) {
+      console.error('Failed to cleanup uploaded files:', error.message)
     }
+  }
+
+  const uploadFilesToStorage = async (): Promise<UploadedImage[]> => {
+    if (!selectedFiles.length || !user) return []
+    const results = await Promise.allSettled(
+      selectedFiles.map(async (file, index) => {
+        const sanitizedFileName = file.name.replace(/[^a-z0-9.]/gi, '-')
+        const filePath = `cars/${user.id}/${Date.now()}-${index}-${sanitizedFileName}`
+        const { data, error } = await supabase.storage
+          .from(CAR_IMAGE_BUCKET)
+          .upload(filePath, file, { cacheControl: '3600', upsert: false })
+        if (error) {
+          throw error
+        }
+        const { data: urlData } = supabase.storage.from(CAR_IMAGE_BUCKET).getPublicUrl(data.path)
+        return { path: data.path, publicUrl: urlData.publicUrl }
+      })
+    )
+
+    const uploaded = results
+      .filter((result): result is PromiseFulfilledResult<UploadedImage> => result.status === 'fulfilled')
+      .map((result) => result.value)
+
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed) {
+      await cleanupUploadedFiles(uploaded.map((image) => image.path))
+      throw failed.reason
+    }
+
     return uploaded
   }
 
@@ -151,50 +176,49 @@ export default function ManageAdsPanel() {
       setMessage('Sign in to create ads.')
       return
     }
-    let uploadedImages: string[] = []
+    setSaving(true)
+    let uploadedImages: UploadedImage[] = []
     try {
       if (selectedFiles.length) {
         setUploadingImages(true)
         uploadedImages = await uploadFilesToStorage()
       }
+      const payload = {
+        title: form.title.trim(),
+        brand: form.brand.trim() || null,
+        model: form.model.trim() || null,
+        year: form.year ? Number(form.year) : null,
+        description: form.description.trim() || null,
+        images: uploadedImages.map((image) => image.publicUrl),
+        slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
+        body_type: form.body_type,
+        location: form.location || 'Kampala, Uganda',
+        is_for_rent: form.type === 'rent',
+        price_per_day: form.type === 'rent' ? Number(form.price) || null : null,
+        price_buy: form.type === 'buy' ? Number(form.price) || null : null,
+        status: form.status,
+        owner_id: user.id,
+      }
+
+      const { error } = await supabase.from('cars').insert(payload)
+      if (error) {
+        await cleanupUploadedFiles(uploadedImages.map((image) => image.path))
+        setMessage(error.message)
+        return
+      }
+      setMessage('Listing created successfully!')
+      setForm(INITIAL_FORM)
+      setSelectedFiles([])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      void fetchAds()
     } catch (error) {
-      setUploadingImages(false)
       setMessage((error as Error).message || 'Failed to upload photos.')
-      return
     } finally {
       setUploadingImages(false)
+      setSaving(false)
     }
-    const payload = {
-      title: form.title.trim(),
-      brand: form.brand.trim() || null,
-      model: form.model.trim() || null,
-      year: form.year ? Number(form.year) : null,
-      description: form.description.trim() || null,
-      images: uploadedImages,
-      slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
-      body_type: form.body_type,
-      location: form.location || 'Kampala, Uganda',
-      is_for_rent: form.type === 'rent',
-      price_per_day: form.type === 'rent' ? Number(form.price) || null : null,
-      price_buy: form.type === 'buy' ? Number(form.price) || null : null,
-      status: form.status,
-      owner_id: user.id,
-    }
-
-    setSaving(true)
-    const { error } = await supabase.from('cars').insert(payload)
-    setSaving(false)
-    if (error) {
-      setMessage(error.message)
-      return
-    }
-    setMessage('Listing created successfully!')
-    setForm(INITIAL_FORM)
-    setSelectedFiles([])
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    void fetchAds()
   }
 
   const handleListingUpdate = async (listing: EditableListing) => {
@@ -430,10 +454,10 @@ export default function ManageAdsPanel() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || uploadingImages}
                     className="rounded-full bg-slate-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.4em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {saving ? 'Saving…' : 'Create listing'}
+                    {uploadingImages ? 'Uploading photos…' : saving ? 'Saving…' : 'Create listing'}
                   </button>
                 </div>
               </form>

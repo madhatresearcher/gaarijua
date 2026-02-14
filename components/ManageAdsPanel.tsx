@@ -62,7 +62,8 @@ const generateSlug = (value: string) =>
     .replace(/^-+|-+$/g, '')
     .concat('-', Date.now().toString().slice(-4))
 
-const CAR_IMAGE_BUCKET = 'car-images'
+// Must match Supabase bucket name exactly (case- and character-sensitive).
+const CAR_IMAGE_BUCKET = 'car_images'
 
 export default function ManageAdsPanel() {
   const { user } = useSupabaseUser()

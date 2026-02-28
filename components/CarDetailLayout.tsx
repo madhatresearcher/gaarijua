@@ -28,6 +28,9 @@ type CarRecord = {
   featured?: boolean
   price_buy?: number
   priceBuy?: number
+  host_name?: string
+  host_vendor_type?: 'rental_company' | 'seller' | null
+  host_is_veteran?: boolean
 }
 
 type CarDetailLayoutProps = {
@@ -103,7 +106,7 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
     : salePrice
     ? formatCurrency(salePrice, currency)
     : 'Price on request'
-  const vendorTitle = car.seller || 'Verified Host'
+  const hostName = car.host_name || car.seller || 'Listing owner'
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -216,8 +219,21 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
             )}
 
             <div className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Vendor</p>
-              <p className="text-lg font-semibold text-slate-900">{vendorTitle}</p>
+              <p className="text-lg font-semibold text-slate-900">{hostName}</p>
+              {(car.host_vendor_type === 'rental_company' || car.host_is_veteran) && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {car.host_vendor_type === 'rental_company' && (
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                      Official company
+                    </span>
+                  )}
+                  {car.host_is_veteran && (
+                    <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+                      3+ years
+                    </span>
+                  )}
+                </div>
+              )}
               <p className="text-sm text-slate-500">{car.location || 'Kampala, UG'}</p>
               <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
                 <div className="flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-amber-700">

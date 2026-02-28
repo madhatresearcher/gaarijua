@@ -17,6 +17,7 @@ Environment variables (create a `.env.local` file):
 
 ## Database helpers
 
-- Run `node scripts/run-sql.js add-cars-status.sql` to make sure the `cars.status` column exists when the Supabase schema is missing it; this resolves `column cars.status does not exist` errors.
+- Run `node scripts/run-sql.js add-cars-status.sql` to ensure the `cars.status` column exists before the dashboard queries it.
+- Run `node scripts/run-sql.js add-cars-body-type.sql` to add the required `body_type` column (with the same options as the UI) when the schema is missing it.
 
 This scaffold includes app routes for `/cars` and `/parts`, reusable components under `components/`, and Supabase client/server libs under `lib/`.

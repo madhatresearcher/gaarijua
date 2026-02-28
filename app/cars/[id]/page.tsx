@@ -19,6 +19,10 @@ type CarRecord = {
   seller?: string
   body_type?: string
   priceBuy?: number
+  owner_id?: string
+  host_name?: string
+  host_vendor_type?: 'rental_company' | 'seller' | null
+  host_is_veteran?: boolean
 }
 
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +45,25 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
 
   if (!car) {
     return notFound()
+  }
+
+  if (car.owner_id) {
+    const { data: ownerProfile } = await supabaseServer
+      .from('profiles')
+      .select('display_name,vendor_type,created_at')
+      .eq('id', car.owner_id)
+      .maybeSingle()
+
+    const accountCreatedAt = ownerProfile?.created_at ? new Date(ownerProfile.created_at) : null
+    const accountAgeMs = accountCreatedAt ? Date.now() - accountCreatedAt.getTime() : 0
+    const threeYearsMs = 1000 * 60 * 60 * 24 * 365 * 3
+
+    car = {
+      ...car,
+      host_name: ownerProfile?.display_name || car.seller || undefined,
+      host_vendor_type: (ownerProfile?.vendor_type as 'rental_company' | 'seller' | undefined) || null,
+      host_is_veteran: Boolean(accountCreatedAt && accountAgeMs >= threeYearsMs),
+    }
   }
 
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)

@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase-client'
+import { isListingPubliclyVisible } from '../lib/listing-visibility'
 import CarCard from './CarCard'
 
 function debounce(fn: (...args: any[]) => void, wait = 300) {
@@ -26,19 +27,19 @@ interface CarRecord {
 }
 
 export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) {
-  const [cars, setCars] = useState<CarRecord[]>(initialCars || [])
+  const [cars, setCars] = useState<CarRecord[]>((initialCars || []).filter((car) => isListingPubliclyVisible(car)))
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'rent' | 'sale'>('all')
   const mounted = useRef(false)
 
   useEffect(() => {
-    setCars(initialCars || [])
+    setCars((initialCars || []).filter((car) => isListingPubliclyVisible(car)))
   }, [initialCars])
 
   // Fetch function used for queries
   const fetchFiltered = async (search: string, flt: string) => {
     try {
-      let query = supabase.from('cars').select('*').order('created_at', { ascending: false }).limit(100)
+      let query = supabase.from('cars').select('*').in('status', ['active', 'closed']).order('created_at', { ascending: false }).limit(120)
       if (search && search.trim()) {
         const s = search.replace(/'/g, "''")
         query = query.or(`title.ilike.%${s}%,location.ilike.%${s}%`)
@@ -50,7 +51,8 @@ export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) 
         console.error('cars fetch error', error)
         return
       }
-      setCars(Array.isArray(data) ? data : [])
+      const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 100) : []
+      setCars(nextCars)
     } catch (err) {
       console.error('fetchFiltered exception', err)
     }
@@ -91,12 +93,12 @@ export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) 
 
         setCars(prev => {
           if (ev === 'INSERT') {
-            if (!matches(newRecord)) return prev
+            if (!matches(newRecord) || !isListingPubliclyVisible(newRecord)) return prev
             return [newRecord, ...prev]
           }
           if (ev === 'UPDATE') {
             // if updated record matches, replace; if no longer matches, remove
-            if (matches(newRecord)) return prev.map((r: CarRecord) => (r.id === newRecord.id ? newRecord : r))
+            if (matches(newRecord) && isListingPubliclyVisible(newRecord)) return prev.map((r: CarRecord) => (r.id === newRecord.id ? newRecord : r))
             return prev.filter((r: CarRecord) => r.id !== newRecord.id)
           }
           if (ev === 'DELETE') {

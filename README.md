@@ -19,5 +19,6 @@ Environment variables (create a `.env.local` file):
 
 - Run `node scripts/run-sql.js add-cars-status.sql` to ensure the `cars.status` column exists before the dashboard queries it.
 - Run `node scripts/run-sql.js add-cars-body-type.sql` to add the required `body_type` column (with the same options as the UI) when the schema is missing it.
+- Run `node scripts/run-sql.js add-cars-closed-at.sql` to add `cars.closed_at` for 24-hour public visibility after a listing is marked closed.
 
 This scaffold includes app routes for `/cars` and `/parts`, reusable components under `components/`, and Supabase client/server libs under `lib/`.

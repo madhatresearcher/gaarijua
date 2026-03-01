@@ -1,6 +1,7 @@
 "use client"
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase-client'
+import { isListingPubliclyVisible } from '../lib/listing-visibility'
 import CarsToggle from './CarsToggle'
 import CarsFilterBar, { FilterFields } from './CarsFilterBar'
 import CarCard from './CarCard'
@@ -22,12 +23,12 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
   const [mode, setMode] = useState<'rent' | 'buy'>('rent')
   const [workingFilters, setWorkingFilters] = useState<FilterFields>(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState<FilterFields>(defaultFilters)
-  const [cars, setCars] = useState(initialCars)
+  const [cars, setCars] = useState(() => initialCars.filter((car) => isListingPubliclyVisible(car)))
   const [loading, setLoading] = useState(false)
 
   const fetchCars = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from('cars').select('*').order('created_at', { ascending: false }).limit(48)
+    let query = supabase.from('cars').select('*').in('status', ['active', 'closed']).order('created_at', { ascending: false }).limit(96)
     query = query.eq('is_for_rent', mode === 'rent')
 
     if (appliedFilters.location) {
@@ -50,7 +51,8 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
     }
 
     const { data } = await query
-    setCars(Array.isArray(data) ? data : [])
+    const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 48) : []
+    setCars(nextCars)
     setLoading(false)
   }, [mode, appliedFilters])
 

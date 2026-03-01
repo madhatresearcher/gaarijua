@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { formatCurrency, detectCurrencyFromRecord } from '../lib/currency'
+import { isClosedListingForDisplay } from '../lib/listing-visibility'
 
 interface ListingCardProps {
   item: {
@@ -26,23 +27,28 @@ export default function ListingCard({ item }: ListingCardProps) {
   const currency = detectCurrencyFromRecord(item) || 'UGX'
   const pricePerDay = item.price_per_day ?? item.pricePerDay
   const priceBuy = item.price_buy ?? item.priceBuy
+  const isRecentlyClosed = isClosedListingForDisplay(item)
 
   let priceLabel = ''
   if (pricePerDay) priceLabel = `${formatCurrency(pricePerDay, currency)}/day`
   else if (priceBuy) priceLabel = formatCurrency(priceBuy, currency)
 
-  const subtitle = [item.brand, item.model, item.year].filter(Boolean).join(' • ')
+  const subtitle = [item.brand, item.model, item.year].filter(Boolean).join(' | ')
 
   return (
     <Link href={href} className="group block">
-      <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-amber-200">
-        {/* Image container */}
+      <div className={`bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-amber-200 ${isRecentlyClosed ? 'opacity-70 grayscale' : ''}`}>
         <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
           <img
             src={image}
             alt={item.title || 'Listing'}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
+          {isRecentlyClosed && (
+            <span className="absolute top-2 right-2 px-2.5 py-1 text-xs font-bold bg-slate-900 text-white rounded-md shadow">
+              SOLD
+            </span>
+          )}
           {item.is_for_rent && (
             <span className="absolute top-2 left-2 px-2.5 py-1 text-xs font-bold bg-amber-500 text-white rounded-md shadow">
               RENT
@@ -54,7 +60,6 @@ export default function ListingCard({ item }: ListingCardProps) {
             </span>
           )}
         </div>
-        {/* Content */}
         <div className="p-3">
           <h3 className="font-bold text-gray-900 truncate group-hover:text-amber-600 transition-colors">
             {item.title || 'Untitled'}
@@ -75,6 +80,9 @@ export default function ListingCard({ item }: ListingCardProps) {
               </span>
             )}
           </div>
+          {isRecentlyClosed && (
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">No longer available</p>
+          )}
         </div>
       </div>
     </Link>

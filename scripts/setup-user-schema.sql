@@ -26,7 +26,8 @@ alter table if exists cars
   add column if not exists seller text,
   add column if not exists promoted boolean default false,
   add column if not exists promoted_expires timestamptz,
-  add column if not exists views_count integer default 0;
+  add column if not exists views_count integer default 0,
+  add column if not exists closed_at timestamptz;
 alter table if exists cars
   add column if not exists body_type text check (body_type in ('SUV','estate','Sedan','coupe','pickup truck'));
 alter table if exists cars
@@ -133,6 +134,7 @@ drop policy if exists "profiles_select_own" on profiles;
 drop policy if exists "profiles_update_own" on profiles;
 drop policy if exists "profiles_admin_all" on profiles;
 drop policy if exists "profiles_public_read" on profiles;
+drop policy if exists "profiles_public_safe_read" on profiles;
 drop policy if exists "profiles_admin_insert" on profiles;
 drop policy if exists "profiles_admin_delete" on profiles;
 
@@ -148,8 +150,8 @@ as $$
   );
 $$;
 
--- Public read on profiles (needed so other policies can check roles without recursion)
-create policy "profiles_public_read" on profiles
+-- Public read on profiles (row visibility). Column grants below restrict sensitive fields.
+create policy "profiles_public_safe_read" on profiles
   for select
   using (true);
 
@@ -167,6 +169,11 @@ create policy "profiles_admin_insert" on profiles
 create policy "profiles_admin_delete" on profiles
   for delete
   using (is_admin_or_support());
+
+-- Harden profile column exposure for client roles.
+revoke select on table profiles from anon, authenticated;
+grant select (id, role, vendor_type, rental_company_id, display_name, avatar_url, is_active, created_at, updated_at)
+  on table profiles to anon, authenticated;
 
 -- Trigger to auto-create profile row when a new user signs up
 create or replace function public.handle_new_user()

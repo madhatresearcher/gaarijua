@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { supabaseServer } from '../lib/supabase-server'
+import { isListingPubliclyVisible } from '../lib/listing-visibility'
 import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
@@ -18,11 +19,12 @@ async function getPromotedCars() {
   const { data } = await supabaseServer
     .from('cars')
     .select('*')
+    .in('status', ['active', 'closed'])
     .eq('promoted', true)
     .gte('promoted_expires', new Date().toISOString())
     .order('promoted_expires', { ascending: true })
-    .limit(12)
-  return data ?? []
+    .limit(24)
+  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getTrendingCars() {
@@ -30,11 +32,12 @@ async function getTrendingCars() {
   const { data } = await supabaseServer
     .from('cars')
     .select('*')
+    .in('status', ['active', 'closed'])
     .gt('views_count', 0)
     .gte('updated_at', threeDaysAgo)
     .order('views_count', { ascending: false })
-    .limit(12)
-  return data ?? []
+    .limit(24)
+  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getHotParts() {
@@ -51,9 +54,10 @@ async function getLatestCars() {
   const { data } = await supabaseServer
     .from('cars')
     .select('*')
+    .in('status', ['active', 'closed'])
     .order('created_at', { ascending: false })
-    .limit(8)
-  return data ?? []
+    .limit(32)
+  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 8)
 }
 
 export default async function Home() {

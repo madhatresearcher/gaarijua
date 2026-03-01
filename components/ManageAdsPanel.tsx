@@ -197,6 +197,7 @@ export default function ManageAdsPanel() {
         price_per_day: form.type === 'rent' ? Number(form.price) || null : null,
         price_buy: form.type === 'buy' ? Number(form.price) || null : null,
         status: form.status,
+        closed_at: form.status === 'closed' ? new Date().toISOString() : null,
         owner_id: user.id,
       }
 
@@ -235,6 +236,7 @@ export default function ManageAdsPanel() {
     }
     if (partial.status && partial.status !== listing.status) {
       updatesPayload.status = partial.status
+      updatesPayload.closed_at = partial.status === 'closed' ? new Date().toISOString() : null
     }
     if (partial.price !== undefined) {
       const price = Number(partial.price)

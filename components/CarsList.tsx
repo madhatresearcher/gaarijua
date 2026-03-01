@@ -17,6 +17,9 @@ interface CarRecord {
   slug?: string
   title?: string
   location?: string
+  status?: string
+  closed_at?: string
+  updated_at?: string
   images?: string[]
   is_for_rent?: boolean
   price_per_day?: number

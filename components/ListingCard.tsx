@@ -16,6 +16,9 @@ interface ListingCardProps {
     price_buy?: number
     is_for_rent?: boolean
     location?: string
+    status?: string
+    closed_at?: string
+    updated_at?: string
     [key: string]: any
   }
 }

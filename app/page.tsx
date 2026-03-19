@@ -6,6 +6,39 @@ import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
 
+type HomeCarRecord = {
+  id?: string
+  slug?: string
+  title?: string
+  brand?: string
+  model?: string
+  year?: number
+  images?: string[]
+  thumbnail?: string
+  price_per_day?: number
+  price_buy?: number
+  is_for_rent?: boolean
+  location?: string
+  status?: string | null
+  closed_at?: string | null
+  updated_at?: string | null
+  views_count?: number
+}
+
+type HomePartRecord = {
+  id?: string
+  slug?: string
+  title?: string
+  category?: string
+  brand?: string
+  images?: string[]
+  thumbnail?: string
+  price?: number
+  seller?: string
+  created_at?: string
+  sales_count?: number
+}
+
 export const revalidate = 60 // ISR: revalidate every 60 seconds
 
 const categories = [
@@ -25,6 +58,7 @@ async function getPromotedCars() {
     .gte('promoted_expires', new Date().toISOString())
     .order('promoted_expires', { ascending: true })
     .limit(24)
+    .overrideTypes<HomeCarRecord[], { merge: false }>()
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
@@ -38,6 +72,7 @@ async function getTrendingCars() {
     .gte('updated_at', threeDaysAgo)
     .order('views_count', { ascending: false })
     .limit(24)
+    .overrideTypes<HomeCarRecord[], { merge: false }>()
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
@@ -48,6 +83,7 @@ async function getHotParts() {
     .gt('sales_count', 0)
     .order('sales_count', { ascending: false })
     .limit(12)
+    .overrideTypes<HomePartRecord[], { merge: false }>()
   return data ?? []
 }
 
@@ -58,6 +94,7 @@ async function getLatestCars() {
     .in('status', ['active', 'closed'])
     .order('created_at', { ascending: false })
     .limit(32)
+    .overrideTypes<HomeCarRecord[], { merge: false }>()
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 8)
 }
 

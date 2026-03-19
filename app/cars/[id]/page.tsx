@@ -34,6 +34,12 @@ type CarRecord = {
   instant_bookable?: boolean
 }
 
+type OwnerProfile = {
+  display_name?: string
+  vendor_type?: 'rental_company' | 'seller' | null
+  created_at?: string
+}
+
 export const revalidate = 60
 
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +50,7 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
     .select(CAR_DETAIL_FIELDS)
     .eq('slug', id)
     .maybeSingle()
+    .overrideTypes<CarRecord | null, { merge: false }>()
   let car: CarRecord | null = bySlug
   if (!car) {
     const { data: byId } = await supabaseServer
@@ -51,6 +58,7 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
       .select(CAR_DETAIL_FIELDS)
       .eq('id', id)
       .maybeSingle()
+      .overrideTypes<CarRecord | null, { merge: false }>()
     car = byId
   }
 
@@ -66,9 +74,13 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
         .select('display_name,vendor_type,created_at')
         .eq('id', car.owner_id)
         .maybeSingle()
+        .overrideTypes<OwnerProfile | null, { merge: false }>()
     : Promise.resolve({ data: null })
-  const relatedPromise = isRental ? fetchSimilarRentals(car, pricePerDay) : fetchRecommendedSales(car)
-  const [{ data: ownerProfile }, relatedListings] = await Promise.all([ownerProfilePromise, relatedPromise])
+  const relatedPromise: Promise<CarRecord[]> = isRental ? fetchSimilarRentals(car, pricePerDay) : fetchRecommendedSales(car)
+  const [{ data: ownerProfile }, relatedListings]: [{ data: OwnerProfile | null }, CarRecord[]] = await Promise.all([
+    ownerProfilePromise,
+    relatedPromise,
+  ])
 
   if (ownerProfile) {
     const accountCreatedAt = ownerProfile.created_at ? new Date(ownerProfile.created_at) : null
@@ -122,7 +134,7 @@ async function fetchSimilarRentals(car: CarRecord, pricePerDay: number) {
     }
   }
 
-  const { data } = await query
+  const { data } = await query.overrideTypes<CarRecord[], { merge: false }>()
   if (!data) return []
   return data.filter((item) => item.is_for_rent && isListingPubliclyVisible(item))
 }
@@ -168,6 +180,7 @@ async function fetchRecommendedSales(car: CarRecord) {
     .neq('slug', car.slug)
     .order('created_at', { ascending: false })
     .limit(24)
+    .overrideTypes<CarRecord[], { merge: false }>()
 
   if (!data) return []
 

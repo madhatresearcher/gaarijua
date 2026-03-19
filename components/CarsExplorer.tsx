@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase-client'
 import { isListingPubliclyVisible } from '../lib/listing-visibility'
 import CarsToggle from './CarsToggle'
@@ -15,6 +15,9 @@ const defaultFilters: FilterFields = {
   maxPrice: '',
 }
 
+const CAR_CARD_SELECT =
+  'id,slug,title,make,brand,model,year,location,status,closed_at,updated_at,is_for_rent,price_per_day,price_buy,images,rating,thumbnail'
+
 type CarsExplorerProps = {
   initialCars: any[]
 }
@@ -25,40 +28,56 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
   const [appliedFilters, setAppliedFilters] = useState<FilterFields>(defaultFilters)
   const [cars, setCars] = useState(() => initialCars.filter((car) => isListingPubliclyVisible(car)))
   const [loading, setLoading] = useState(false)
+  const shouldSkipInitialFetch = useRef(initialCars.length > 0)
 
   const fetchCars = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from('cars').select('*').in('status', ['active', 'closed']).order('created_at', { ascending: false }).limit(96)
-    query = query.eq('is_for_rent', mode === 'rent')
+    try {
+      let query = supabase
+        .from('cars')
+        .select(CAR_CARD_SELECT)
+        .in('status', ['active', 'closed'])
+        .order('created_at', { ascending: false })
+        .limit(96)
+      query = query.eq('is_for_rent', mode === 'rent')
 
-    if (appliedFilters.location) {
-      query = query.ilike('location', `%${appliedFilters.location}%`)
-    }
-    if (appliedFilters.make) {
-      query = query.ilike('make', `%${appliedFilters.make}%`)
-    }
-    if (appliedFilters.model) {
-      query = query.ilike('model', `%${appliedFilters.model}%`)
-    }
-    if (appliedFilters.year) {
-      query = query.eq('year', Number(appliedFilters.year))
-    }
-    if (mode === 'rent' && appliedFilters.minPrice) {
-      query = query.gte('price_per_day', Number(appliedFilters.minPrice))
-    }
-    if (mode === 'rent' && appliedFilters.maxPrice) {
-      query = query.lte('price_per_day', Number(appliedFilters.maxPrice))
-    }
+      if (appliedFilters.location) {
+        query = query.ilike('location', `%${appliedFilters.location}%`)
+      }
+      if (appliedFilters.make) {
+        query = query.ilike('make', `%${appliedFilters.make}%`)
+      }
+      if (appliedFilters.model) {
+        query = query.ilike('model', `%${appliedFilters.model}%`)
+      }
+      if (appliedFilters.year) {
+        query = query.eq('year', Number(appliedFilters.year))
+      }
+      if (mode === 'rent' && appliedFilters.minPrice) {
+        query = query.gte('price_per_day', Number(appliedFilters.minPrice))
+      }
+      if (mode === 'rent' && appliedFilters.maxPrice) {
+        query = query.lte('price_per_day', Number(appliedFilters.maxPrice))
+      }
 
-    const { data } = await query
-    const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 48) : []
-    setCars(nextCars)
-    setLoading(false)
+      const { data } = await query
+      const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 48) : []
+      setCars(nextCars)
+    } finally {
+      setLoading(false)
+    }
   }, [mode, appliedFilters])
 
   useEffect(() => {
-    fetchCars()
-  }, [fetchCars])
+    if (shouldSkipInitialFetch.current) {
+      shouldSkipInitialFetch.current = false
+      const defaultFiltersApplied = Object.values(appliedFilters).every((value) => !value)
+      if (mode === 'rent' && defaultFiltersApplied) {
+        return
+      }
+    }
+    void fetchCars()
+  }, [appliedFilters, fetchCars, mode])
 
   const handleApplyFilters = () => {
     setAppliedFilters(workingFilters)

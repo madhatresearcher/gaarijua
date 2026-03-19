@@ -40,6 +40,15 @@ type UploadedImage = {
   publicUrl: string
 }
 
+const MAX_UPLOAD_FILES = 8
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const ALLOWED_IMAGE_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+}
+
 const BODY_TYPE_OPTIONS = ['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck']
 const INITIAL_FORM: ManageFormShape = {
   title: '',
@@ -83,6 +92,21 @@ export default function ManageAdsPanel() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  const validateSelectedFiles = (files: File[]) => {
+    if (files.length > MAX_UPLOAD_FILES) {
+      return `You can upload up to ${MAX_UPLOAD_FILES} images per listing.`
+    }
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_MIME[file.type]) {
+        return `${file.name}: unsupported format. Use JPG, PNG, WEBP, or AVIF.`
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return `${file.name}: exceeds 5MB size limit.`
+      }
+    }
+    return null
+  }
+
   const cleanupUploadedFiles = async (paths: string[]) => {
     if (!paths.length) return
     const { error } = await supabase.storage.from(CAR_IMAGE_BUCKET).remove(paths)
@@ -95,11 +119,15 @@ export default function ManageAdsPanel() {
     if (!selectedFiles.length || !user) return []
     const results = await Promise.allSettled(
       selectedFiles.map(async (file, index) => {
-        const sanitizedFileName = file.name.replace(/[^a-z0-9.]/gi, '-')
-        const filePath = `cars/${user.id}/${Date.now()}-${index}-${sanitizedFileName}`
+        const extension = ALLOWED_IMAGE_MIME[file.type] || 'jpg'
+        const uniqueToken =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${index}`
+        const filePath = `cars/${user.id}/${uniqueToken}.${extension}`
         const { data, error } = await supabase.storage
           .from(CAR_IMAGE_BUCKET)
-          .upload(filePath, file, { cacheControl: '3600', upsert: false })
+          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type })
         if (error) {
           throw error
         }
@@ -128,7 +156,17 @@ export default function ManageAdsPanel() {
       setSelectedFiles([])
       return
     }
-    setSelectedFiles(Array.from(files))
+    const nextFiles = Array.from(files)
+    const validationError = validateSelectedFiles(nextFiles)
+    if (validationError) {
+      setMessage(validationError)
+      setSelectedFiles([])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+    setSelectedFiles(nextFiles)
   }
 
   const fetchAds = useCallback(async () => {
@@ -180,6 +218,11 @@ export default function ManageAdsPanel() {
     let uploadedImages: UploadedImage[] = []
     try {
       if (selectedFiles.length) {
+        const validationError = validateSelectedFiles(selectedFiles)
+        if (validationError) {
+          setMessage(validationError)
+          return
+        }
         setUploadingImages(true)
         uploadedImages = await uploadFilesToStorage()
       }
@@ -415,7 +458,7 @@ export default function ManageAdsPanel() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/avif"
                       onChange={handleFileSelection}
                       className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
                     />

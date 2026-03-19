@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { supabaseServer } from '../lib/supabase-server'
 import { isListingPubliclyVisible } from '../lib/listing-visibility'
+import { CAR_HOME_FIELDS, PART_CARD_FIELDS } from '../lib/selects'
 import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
@@ -18,7 +19,7 @@ const categories = [
 async function getPromotedCars() {
   const { data } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
     .eq('promoted', true)
     .gte('promoted_expires', new Date().toISOString())
@@ -31,7 +32,7 @@ async function getTrendingCars() {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
   const { data } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
     .gt('views_count', 0)
     .gte('updated_at', threeDaysAgo)
@@ -43,7 +44,7 @@ async function getTrendingCars() {
 async function getHotParts() {
   const { data } = await supabaseServer
     .from('parts')
-    .select('*')
+    .select(PART_CARD_FIELDS)
     .gt('sales_count', 0)
     .order('sales_count', { ascending: false })
     .limit(12)
@@ -53,7 +54,7 @@ async function getHotParts() {
 async function getLatestCars() {
   const { data } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
     .order('created_at', { ascending: false })
     .limit(32)

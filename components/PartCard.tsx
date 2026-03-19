@@ -15,7 +15,7 @@ export default function PartCard({ part }: { part: any }) {
     <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <Link href={`/parts/${part.id || part.slug}`} className="flex flex-col gap-3">
         <div className="relative overflow-hidden rounded-xl bg-slate-100">
-          <img src={thumbnail} alt={part.title} className="h-40 w-full object-cover" />
+          <img src={thumbnail} alt={part.title} className="h-40 w-full object-cover" loading="lazy" decoding="async" />
           <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900">
             {part.category ?? 'Part'}
           </span>

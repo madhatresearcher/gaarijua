@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
 import { supabaseServer } from '../../../lib/supabase-server'
+import { isListingPubliclyVisible } from '../../../lib/listing-visibility'
+import { CAR_DETAIL_FIELDS, CAR_RELATED_FIELDS } from '../../../lib/selects'
 import CarDetailLayout from '../../../components/CarDetailLayout'
 
 type CarRecord = {
@@ -23,92 +25,95 @@ type CarRecord = {
   host_name?: string
   host_vendor_type?: 'rental_company' | 'seller' | null
   host_is_veteran?: boolean
+  status?: string
+  closed_at?: string
+  updated_at?: string
+  rating?: number
+  review_count?: number
+  instant_book?: boolean
+  instant_bookable?: boolean
 }
+
+export const revalidate = 60
 
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const { data: bySlug } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_DETAIL_FIELDS)
     .eq('slug', id)
     .maybeSingle()
   let car: CarRecord | null = bySlug
   if (!car) {
     const { data: byId } = await supabaseServer
       .from('cars')
-      .select('*')
+      .select(CAR_DETAIL_FIELDS)
       .eq('id', id)
       .maybeSingle()
     car = byId
   }
 
-  if (!car) {
+  if (!car || !isListingPubliclyVisible(car)) {
     return notFound()
   }
 
-  if (car.owner_id) {
-    const { data: ownerProfile } = await supabaseServer
-      .from('profiles')
-      .select('display_name,vendor_type,created_at')
-      .eq('id', car.owner_id)
-      .maybeSingle()
+  const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
+  const isRental = Boolean(car.is_for_rent || pricePerDay)
+  const ownerProfilePromise = car.owner_id
+    ? supabaseServer
+        .from('profiles')
+        .select('display_name,vendor_type,created_at')
+        .eq('id', car.owner_id)
+        .maybeSingle()
+    : Promise.resolve({ data: null })
+  const relatedPromise = isRental ? fetchSimilarRentals(car, pricePerDay) : fetchRecommendedSales(car)
+  const [{ data: ownerProfile }, relatedListings] = await Promise.all([ownerProfilePromise, relatedPromise])
 
-    const accountCreatedAt = ownerProfile?.created_at ? new Date(ownerProfile.created_at) : null
+  if (ownerProfile) {
+    const accountCreatedAt = ownerProfile.created_at ? new Date(ownerProfile.created_at) : null
     const accountAgeMs = accountCreatedAt ? Date.now() - accountCreatedAt.getTime() : 0
     const threeYearsMs = 1000 * 60 * 60 * 24 * 365 * 3
 
     car = {
       ...car,
-      host_name: ownerProfile?.display_name || car.seller || undefined,
-      host_vendor_type: (ownerProfile?.vendor_type as 'rental_company' | 'seller' | undefined) || null,
+      host_name: ownerProfile.display_name || car.seller || undefined,
+      host_vendor_type: (ownerProfile.vendor_type as 'rental_company' | 'seller' | undefined) || null,
       host_is_veteran: Boolean(accountCreatedAt && accountAgeMs >= threeYearsMs),
     }
   }
 
-  const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
-  const isRental = Boolean(car.is_for_rent || pricePerDay)
-
-  let similarRentals: CarRecord[] = []
-  if (isRental) {
-    const range20 = await fetchSimilarRentals(car, pricePerDay, 0.2)
-    similarRentals = range20
-
-    if (similarRentals.length < 4) {
-      const range40 = await fetchSimilarRentals(car, pricePerDay, 0.4)
-      const deduped: CarRecord[] = []
-      const seen = new Set<string>()
-      for (const listing of [...similarRentals, ...range40]) {
-        const key = listing.id || listing.slug || ''
-        if (!key || seen.has(key)) continue
-        if (key === car.id || key === car.slug) continue
-        seen.add(key)
-        deduped.push(listing)
-      }
-      similarRentals = deduped
-    }
-
-    similarRentals = prioritizeSimilar(similarRentals, car, pricePerDay)
-    similarRentals = similarRentals.slice(0, 6)
-  }
-
-  const recommendedSales = isRental ? [] : await fetchRecommendedSales(car)
+  const similarRentals = isRental
+    ? prioritizeSimilar(
+        relatedListings.filter((listing) => isListingPubliclyVisible(listing)),
+        car,
+        pricePerDay
+      ).slice(0, 6)
+    : []
+  const recommendedSales = isRental
+    ? []
+    : prioritizeSales(
+        relatedListings.filter((listing) => isListingPubliclyVisible(listing)),
+        detectBodyType(car),
+        getSalePrice(car)
+      ).slice(0, 6)
 
   return <CarDetailLayout car={car} similarRentals={similarRentals} recommendedSales={recommendedSales} />
 }
 
-async function fetchSimilarRentals(car: CarRecord, pricePerDay: number, rangeFactor: number) {
-  const minPrice = pricePerDay ? Math.max(0, pricePerDay * (1 - rangeFactor)) : 0
-  const maxPrice = pricePerDay ? pricePerDay * (1 + rangeFactor) : undefined
+async function fetchSimilarRentals(car: CarRecord, pricePerDay: number) {
+  const minPrice = pricePerDay ? Math.max(0, pricePerDay * 0.6) : 0
+  const maxPrice = pricePerDay ? pricePerDay * 1.4 : undefined
 
   let query = supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_RELATED_FIELDS)
     .eq('is_for_rent', true)
+    .in('status', ['active', 'closed'])
     .neq('id', car.id)
     .neq('slug', car.slug)
     .order('created_at', { ascending: false })
-    .limit(12)
+    .limit(24)
 
   if (pricePerDay) {
     query = query.gte('price_per_day', minPrice)
@@ -119,7 +124,7 @@ async function fetchSimilarRentals(car: CarRecord, pricePerDay: number, rangeFac
 
   const { data } = await query
   if (!data) return []
-  return data.filter((item) => item.is_for_rent)
+  return data.filter((item) => item.is_for_rent && isListingPubliclyVisible(item))
 }
 
 function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPrice: number) {
@@ -154,13 +159,11 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
 }
 
 async function fetchRecommendedSales(car: CarRecord) {
-  const currentPrice = getSalePrice(car)
-  const bodyType = detectBodyType(car)
-
   const { data } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_RELATED_FIELDS)
     .eq('is_for_rent', false)
+    .in('status', ['active', 'closed'])
     .neq('id', car.id)
     .neq('slug', car.slug)
     .order('created_at', { ascending: false })
@@ -177,8 +180,7 @@ async function fetchRecommendedSales(car: CarRecord) {
     unique.push(listing)
   }
 
-  const priced = unique.filter((listing) => getSalePrice(listing) > 0)
-  return prioritizeSales(priced, bodyType, currentPrice).slice(0, 6)
+  return unique.filter((listing) => getSalePrice(listing) > 0 && isListingPubliclyVisible(listing))
 }
 
 function prioritizeSales(listings: CarRecord[], targetBody: string, targetPrice: number) {

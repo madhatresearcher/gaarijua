@@ -19,9 +19,10 @@ export default function SignInPage() {
     setStatus('sending')
     setFeedback(null)
 
-    const redirectTo = typeof window === 'undefined' ? '/' : window.location.origin
+    const redirectTo = typeof window === 'undefined' ? '/' : `${window.location.origin}/host`
+    const normalizedEmail = email.trim().toLowerCase()
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: normalizedEmail,
       options: { emailRedirectTo: redirectTo },
     })
 
@@ -32,7 +33,7 @@ export default function SignInPage() {
     }
 
     setStatus('sent')
-    setFeedback(`Magic link sent to ${email}. Check spam if you don't see it within a few minutes.`)
+    setFeedback(`Magic link sent to ${normalizedEmail}. Check spam if you don't see it within a few minutes.`)
     setEmail('')
   }
 

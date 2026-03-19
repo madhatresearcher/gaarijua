@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase-client'
 import PartsFilterBar, { PartFilterFields } from './PartsFilterBar'
 import PartCard from './PartCard'
@@ -13,6 +13,8 @@ const defaultFilters: PartFilterFields = {
   maxPrice: '',
 }
 
+const PART_CARD_SELECT = 'id,slug,title,seller,category,images,thumbnail,price,price_formatted'
+
 type PartsExplorerProps = {
   initialParts: any[]
 }
@@ -22,40 +24,51 @@ export default function PartsExplorer({ initialParts }: PartsExplorerProps) {
   const [appliedFilters, setAppliedFilters] = useState<PartFilterFields>(defaultFilters)
   const [parts, setParts] = useState(initialParts)
   const [loading, setLoading] = useState(false)
+  const shouldSkipInitialFetch = useRef(initialParts.length > 0)
 
   const fetchParts = useCallback(async () => {
     setLoading(true)
-    let query = supabase.from('parts').select('*').order('created_at', { ascending: false }).limit(48)
+    try {
+      let query = supabase.from('parts').select(PART_CARD_SELECT).order('created_at', { ascending: false }).limit(48)
 
-    if (appliedFilters.location) {
-      query = query.ilike('location', `%${appliedFilters.location}%`)
-    }
-    if (appliedFilters.make) {
-      const look = `%${appliedFilters.make}%`
-      query = query.or(`brand.ilike.${look},make.ilike.${look}`)
-    }
-    if (appliedFilters.model) {
-      const look = `%${appliedFilters.model}%`
-      query = query.or(`model.ilike.${look},compatible_models.ilike.${look}`)
-    }
-    if (appliedFilters.seller) {
-      query = query.ilike('seller', `%${appliedFilters.seller}%`)
-    }
-    if (appliedFilters.minPrice) {
-      query = query.gte('price', Number(appliedFilters.minPrice))
-    }
-    if (appliedFilters.maxPrice) {
-      query = query.lte('price', Number(appliedFilters.maxPrice))
-    }
+      if (appliedFilters.location) {
+        query = query.ilike('location', `%${appliedFilters.location}%`)
+      }
+      if (appliedFilters.make) {
+        const look = `%${appliedFilters.make}%`
+        query = query.or(`brand.ilike.${look},make.ilike.${look}`)
+      }
+      if (appliedFilters.model) {
+        const look = `%${appliedFilters.model}%`
+        query = query.or(`model.ilike.${look},compatible_models.ilike.${look}`)
+      }
+      if (appliedFilters.seller) {
+        query = query.ilike('seller', `%${appliedFilters.seller}%`)
+      }
+      if (appliedFilters.minPrice) {
+        query = query.gte('price', Number(appliedFilters.minPrice))
+      }
+      if (appliedFilters.maxPrice) {
+        query = query.lte('price', Number(appliedFilters.maxPrice))
+      }
 
-    const { data } = await query
-    setParts(Array.isArray(data) ? data : [])
-    setLoading(false)
+      const { data } = await query
+      setParts(Array.isArray(data) ? data : [])
+    } finally {
+      setLoading(false)
+    }
   }, [appliedFilters])
 
   useEffect(() => {
-    fetchParts()
-  }, [fetchParts])
+    if (shouldSkipInitialFetch.current) {
+      shouldSkipInitialFetch.current = false
+      const defaultFiltersApplied = Object.values(appliedFilters).every((value) => !value)
+      if (defaultFiltersApplied) {
+        return
+      }
+    }
+    void fetchParts()
+  }, [appliedFilters, fetchParts])
 
   const handleApplyFilters = () => {
     setAppliedFilters(workingFilters)

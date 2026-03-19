@@ -46,6 +46,8 @@ export default function ListingCard({ item }: ListingCardProps) {
             src={image}
             alt={item.title || 'Listing'}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+            decoding="async"
           />
           {isRecentlyClosed && (
             <span className="absolute top-2 right-2 px-2.5 py-1 text-xs font-bold bg-slate-900 text-white rounded-md shadow">

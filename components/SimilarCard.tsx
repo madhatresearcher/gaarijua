@@ -38,7 +38,7 @@ export default function SimilarCard({ listing, onCompare }: SimilarCardProps) {
   return (
     <div className="min-w-[260px] max-w-[260px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="relative h-36 overflow-hidden rounded-2xl bg-slate-100">
-        <img src={thumbnail} alt={listing.title} className="h-full w-full object-cover" />
+        <img src={thumbnail} alt={listing.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
         <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow">
           <svg className="h-3 w-3 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10 1.5l2.472 5.008 5.528.805-3.99 3.89.943 5.493L10 15.85l-4.953 2.846.943-5.493-3.99-3.89 5.528-.805L10 1.5z" />

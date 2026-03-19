@@ -67,6 +67,8 @@ export default function HeroCard({ item, tag, tagColor = 'amber', type = 'car' }
             src={image}
             alt={item.title || 'Listing'}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            loading="lazy"
+            decoding="async"
           />
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />

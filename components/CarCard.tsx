@@ -21,7 +21,7 @@ export default function CarCard({ car }: { car: any }) {
   return (
     <div className={`group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${isRecentlyClosed ? 'opacity-70 grayscale' : ''}`}>
       <div className="relative mb-4 overflow-hidden rounded-xl bg-slate-100">
-        <img src={thumbnail} alt={car.title} className="h-56 w-full object-cover" />
+        <img src={thumbnail} alt={car.title} className="h-56 w-full object-cover" loading="lazy" decoding="async" />
         {isRecentlyClosed && (
           <span className="absolute top-3 right-3 rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white">
             Closed

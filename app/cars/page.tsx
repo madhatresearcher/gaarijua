@@ -1,11 +1,14 @@
 import CarsExplorer from '../../components/CarsExplorer'
 import { supabaseServer } from '../../lib/supabase-server'
 import { isListingPubliclyVisible } from '../../lib/listing-visibility'
+import { CAR_CARD_FIELDS } from '../../lib/selects'
+
+export const revalidate = 60
 
 export default async function CarsPage() {
   const { data } = await supabaseServer
     .from('cars')
-    .select('*')
+    .select(CAR_CARD_FIELDS)
     .in('status', ['active', 'closed'])
     .eq('is_for_rent', true)
     .order('created_at', { ascending: false })

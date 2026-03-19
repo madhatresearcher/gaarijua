@@ -29,20 +29,38 @@ interface CarRecord {
   [key: string]: any
 }
 
+const CAR_LIST_SELECT =
+  'id,slug,title,make,brand,model,location,status,closed_at,updated_at,is_for_rent,price_per_day,price_buy,images,rating,thumbnail'
+
 export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) {
   const [cars, setCars] = useState<CarRecord[]>((initialCars || []).filter((car) => isListingPubliclyVisible(car)))
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'rent' | 'sale'>('all')
   const mounted = useRef(false)
+  const qRef = useRef('')
+  const filterRef = useRef<'all' | 'rent' | 'sale'>('all')
 
   useEffect(() => {
     setCars((initialCars || []).filter((car) => isListingPubliclyVisible(car)))
   }, [initialCars])
 
+  useEffect(() => {
+    qRef.current = q
+  }, [q])
+
+  useEffect(() => {
+    filterRef.current = filter
+  }, [filter])
+
   // Fetch function used for queries
   const fetchFiltered = async (search: string, flt: string) => {
     try {
-      let query = supabase.from('cars').select('*').in('status', ['active', 'closed']).order('created_at', { ascending: false }).limit(120)
+      let query = supabase
+        .from('cars')
+        .select(CAR_LIST_SELECT)
+        .in('status', ['active', 'closed'])
+        .order('created_at', { ascending: false })
+        .limit(120)
       if (search && search.trim()) {
         const s = search.replace(/'/g, "''")
         query = query.or(`title.ilike.%${s}%,location.ilike.%${s}%`)
@@ -74,48 +92,57 @@ export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) 
   }, [q, filter, debouncedFetch])
 
   useEffect(() => {
-    // Subscribe to realtime changes on the `cars` table
-    const channel = supabase.channel('public:cars')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cars' }, (payload: { eventType: string, new: CarRecord, old: CarRecord }) => {
-        const ev = payload.eventType
-        const newRecord = payload.new
-        const oldRecord = payload.old
+    const matches = (rec: CarRecord) => {
+      if (!rec) return false
+      const activeSearch = qRef.current.trim().toLowerCase()
+      if (activeSearch) {
+        const title = String(rec.title || '').toLowerCase()
+        const loc = String(rec.location || '').toLowerCase()
+        if (!title.includes(activeSearch) && !loc.includes(activeSearch)) return false
+      }
+      const activeFilter = filterRef.current
+      if (activeFilter === 'rent' && !rec.is_for_rent) return false
+      if (activeFilter === 'sale' && rec.is_for_rent) return false
+      return true
+    }
 
-        const matches = (rec: any) => {
-          if (!rec) return false
-          if (q && q.trim()) {
-            const s = q.toLowerCase()
-            const title = String(rec.title || '').toLowerCase()
-            const loc = String(rec.location || '').toLowerCase()
-            if (!title.includes(s) && !loc.includes(s)) return false
-          }
-          if (filter === 'rent' && !rec.is_for_rent) return false
-          if (filter === 'sale' && rec.is_for_rent) return false
-          return true
+    const applyRealtimeChange = (eventType: 'INSERT' | 'UPDATE' | 'DELETE', newRecord: CarRecord, oldRecord: CarRecord) => {
+      setCars((prev) => {
+        if (eventType === 'INSERT') {
+          if (!matches(newRecord) || !isListingPubliclyVisible(newRecord)) return prev
+          const next = [newRecord, ...prev.filter((entry) => entry.id !== newRecord.id)]
+          return next.slice(0, 100)
         }
 
-        setCars(prev => {
-          if (ev === 'INSERT') {
-            if (!matches(newRecord) || !isListingPubliclyVisible(newRecord)) return prev
-            return [newRecord, ...prev]
+        if (eventType === 'UPDATE') {
+          if (matches(newRecord) && isListingPubliclyVisible(newRecord)) {
+            return prev.map((entry) => (entry.id === newRecord.id ? newRecord : entry))
           }
-          if (ev === 'UPDATE') {
-            // if updated record matches, replace; if no longer matches, remove
-            if (matches(newRecord) && isListingPubliclyVisible(newRecord)) return prev.map((r: CarRecord) => (r.id === newRecord.id ? newRecord : r))
-            return prev.filter((r: CarRecord) => r.id !== newRecord.id)
-          }
-          if (ev === 'DELETE') {
-            return prev.filter((r: CarRecord) => r.id !== oldRecord.id)
-          }
-          return prev
-        })
+          return prev.filter((entry) => entry.id !== newRecord.id)
+        }
+
+        return prev.filter((entry) => entry.id !== oldRecord.id)
+      })
+    }
+
+    // Keep one subscription instance to avoid reconnect churn while users type/filter.
+    const channel = supabase
+      .channel('cars-list-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cars' }, (payload: { new: CarRecord; old: CarRecord }) => {
+        applyRealtimeChange('INSERT', payload.new, payload.old)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cars' }, (payload: { new: CarRecord; old: CarRecord }) => {
+        applyRealtimeChange('UPDATE', payload.new, payload.old)
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cars' }, (payload: { new: CarRecord; old: CarRecord }) => {
+        applyRealtimeChange('DELETE', payload.new, payload.old)
       })
       .subscribe()
 
     return () => {
       try { supabase.removeChannel(channel) } catch (e) { /* ignore */ }
     }
-  }, [q, filter])
+  }, [])
 
   return (
     <div>
@@ -134,7 +161,7 @@ export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) 
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {cars.map(car => (
-          <CarCard key={car.id} car={car} />
+          <CarCard key={car.id || car.slug} car={car} />
         ))}
       </div>
     </div>

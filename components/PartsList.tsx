@@ -17,18 +17,25 @@ interface PartRecord {
   [key: string]: any
 }
 
+const PART_LIST_SELECT = 'id,slug,title,seller,category,images,thumbnail,price,price_formatted'
+
 export default function PartsList({ initialParts }: { initialParts: PartRecord[] }) {
   const [parts, setParts] = useState<PartRecord[]>(initialParts || [])
   const [q, setQ] = useState('')
   const mounted = useRef(false)
+  const qRef = useRef('')
 
   useEffect(() => {
     setParts(initialParts || [])
   }, [initialParts])
 
+  useEffect(() => {
+    qRef.current = q
+  }, [q])
+
   const fetchFiltered = async (search: string) => {
     try {
-      let query = supabase.from('parts').select('*').order('created_at', { ascending: false }).limit(100)
+      let query = supabase.from('parts').select(PART_LIST_SELECT).order('created_at', { ascending: false }).limit(100)
       if (search && search.trim()) {
         const s = search.replace(/'/g, "''")
         query = query.or(`title.ilike.%${s}%,category.ilike.%${s}%`)
@@ -51,40 +58,46 @@ export default function PartsList({ initialParts }: { initialParts: PartRecord[]
   }, [q])
 
   useEffect(() => {
-    const channel = supabase.channel('public:parts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parts' }, (payload: { eventType: string, new: PartRecord, old: PartRecord }) => {
-        const ev = payload.eventType
-        const newRecord = payload.new
-        const oldRecord = payload.old
+    const matches = (rec: PartRecord) => {
+      if (!rec) return false
+      const activeSearch = qRef.current.trim().toLowerCase()
+      if (!activeSearch) return true
+      const title = String(rec.title || '').toLowerCase()
+      const category = String(rec.category || '').toLowerCase()
+      return title.includes(activeSearch) || category.includes(activeSearch)
+    }
 
-        const matches = (rec: any) => {
-          if (!rec) return false
-          if (q && q.trim()) {
-            const s = q.toLowerCase()
-            const title = String(rec.title || '').toLowerCase()
-            const cat = String(rec.category || '').toLowerCase()
-            if (!title.includes(s) && !cat.includes(s)) return false
-          }
-          return true
+    const applyRealtimeChange = (eventType: 'INSERT' | 'UPDATE' | 'DELETE', newRecord: PartRecord, oldRecord: PartRecord) => {
+      setParts((prev) => {
+        if (eventType === 'INSERT') {
+          if (!matches(newRecord)) return prev
+          const next = [newRecord, ...prev.filter((entry) => entry.id !== newRecord.id)]
+          return next.slice(0, 100)
         }
+        if (eventType === 'UPDATE') {
+          if (matches(newRecord)) return prev.map((entry) => (entry.id === newRecord.id ? newRecord : entry))
+          return prev.filter((entry) => entry.id !== newRecord.id)
+        }
+        return prev.filter((entry) => entry.id !== oldRecord.id)
+      })
+    }
 
-        setParts(prev => {
-          if (ev === 'INSERT') {
-            if (!matches(newRecord)) return prev
-            return [newRecord, ...prev]
-          }
-          if (ev === 'UPDATE') {
-            if (matches(newRecord)) return prev.map((p: PartRecord) => (p.id === newRecord.id ? newRecord : p))
-            return prev.filter((p: PartRecord) => p.id !== newRecord.id)
-          }
-          if (ev === 'DELETE') return prev.filter((p: PartRecord) => p.id !== oldRecord.id)
-          return prev
-        })
+    // Keep one subscription instance to avoid reconnect churn while users type.
+    const channel = supabase
+      .channel('parts-list-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'parts' }, (payload: { new: PartRecord; old: PartRecord }) => {
+        applyRealtimeChange('INSERT', payload.new, payload.old)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'parts' }, (payload: { new: PartRecord; old: PartRecord }) => {
+        applyRealtimeChange('UPDATE', payload.new, payload.old)
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'parts' }, (payload: { new: PartRecord; old: PartRecord }) => {
+        applyRealtimeChange('DELETE', payload.new, payload.old)
       })
       .subscribe()
 
     return () => { try { supabase.removeChannel(channel) } catch (e) {} }
-  }, [q])
+  }, [])
 
   return (
     <div>
@@ -93,7 +106,7 @@ export default function PartsList({ initialParts }: { initialParts: PartRecord[]
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {parts.map(p => (
-          <PartCard key={p.id} part={p} />
+          <PartCard key={p.id || p.slug} part={p} />
         ))}
       </div>
     </div>

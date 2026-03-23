@@ -21,7 +21,7 @@ type HomeCarRecord = {
   location?: string
   status?: string | null
   closed_at?: string | null
-  updated_at?: string | null
+  created_at?: string | null
   views_count?: number
 }
 
@@ -36,7 +36,6 @@ type HomePartRecord = {
   price?: number
   seller?: string
   created_at?: string
-  sales_count?: number
 }
 
 export const revalidate = 60 // ISR: revalidate every 60 seconds
@@ -50,7 +49,7 @@ const categories = [
 ]
 
 async function getPromotedCars() {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('cars')
     .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
@@ -59,42 +58,57 @@ async function getPromotedCars() {
     .order('promoted_expires', { ascending: true })
     .limit(24)
     .overrideTypes<HomeCarRecord[], { merge: false }>()
+  if (error) {
+    console.error('getPromotedCars failed:', error.message)
+    return []
+  }
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getTrendingCars() {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('cars')
     .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
     .gt('views_count', 0)
-    .gte('updated_at', threeDaysAgo)
+    .gte('created_at', threeDaysAgo)
     .order('views_count', { ascending: false })
     .limit(24)
     .overrideTypes<HomeCarRecord[], { merge: false }>()
+  if (error) {
+    console.error('getTrendingCars failed:', error.message)
+    return []
+  }
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getHotParts() {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('parts')
     .select(PART_CARD_FIELDS)
-    .gt('sales_count', 0)
-    .order('sales_count', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(12)
     .overrideTypes<HomePartRecord[], { merge: false }>()
+  if (error) {
+    console.error('getHotParts failed:', error.message)
+    return []
+  }
   return data ?? []
 }
 
 async function getLatestCars() {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('cars')
     .select(CAR_HOME_FIELDS)
     .in('status', ['active', 'closed'])
     .order('created_at', { ascending: false })
     .limit(32)
     .overrideTypes<HomeCarRecord[], { merge: false }>()
+  if (error) {
+    console.error('getLatestCars failed:', error.message)
+    return []
+  }
   return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 8)
 }
 
@@ -176,9 +190,9 @@ export default async function Home() {
 
         {hotParts.length > 0 && (
           <section className="px-0">
-            <Carousel title="⚡ Fast-Moving Parts" subtitle="Top-selling spare parts this month">
+            <Carousel title="⚡ Latest Parts" subtitle="Fresh arrivals from verified sellers">
               {hotParts.map((part: any) => (
-                <HeroCard key={part.id} item={part} tag={`${part.sales_count ?? 0} sold`} tagColor="green" type="part" />
+                <HeroCard key={part.id} item={part} tag={part.category || 'Part'} tagColor="green" type="part" />
               ))}
             </Carousel>
           </section>

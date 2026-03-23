@@ -9,20 +9,21 @@ type PartListRecord = {
   seller?: string
   category?: string
   images?: string[]
-  thumbnail?: string
   price?: number
-  price_formatted?: string
 }
 
 export const revalidate = 60
 
 export default async function PartsPage() {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('parts')
     .select(PART_CARD_FIELDS)
     .order('created_at', { ascending: false })
     .limit(48)
     .overrideTypes<PartListRecord[], { merge: false }>()
+  if (error) {
+    console.error('PartsPage query failed:', error.message)
+  }
 
   const initialParts = Array.isArray(data) ? data : []
 

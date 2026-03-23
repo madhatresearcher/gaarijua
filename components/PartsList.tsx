@@ -17,7 +17,7 @@ interface PartRecord {
   [key: string]: any
 }
 
-const PART_LIST_SELECT = 'id,slug,title,seller,category,images,thumbnail,price,price_formatted'
+const PART_LIST_SELECT = 'id,slug,title,seller,category,brand,images,price,created_at'
 
 export default function PartsList({ initialParts }: { initialParts: PartRecord[] }) {
   const [parts, setParts] = useState<PartRecord[]>(initialParts || [])

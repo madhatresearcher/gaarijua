@@ -4,11 +4,12 @@ type ListingVisibilityRecord = {
   status?: string | null
   closed_at?: string | null
   updated_at?: string | null
+  created_at?: string | null
 }
 
 export function isClosedListingVisible(record: ListingVisibilityRecord, now = Date.now()) {
   if ((record.status || '').toLowerCase() !== 'closed') return false
-  const closedAt = record.closed_at || record.updated_at
+  const closedAt = record.closed_at || record.updated_at || record.created_at
   if (!closedAt) return false
   const closedTs = Date.parse(closedAt)
   if (Number.isNaN(closedTs)) return false

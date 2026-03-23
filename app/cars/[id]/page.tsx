@@ -27,11 +27,7 @@ type CarRecord = {
   host_is_veteran?: boolean
   status?: string
   closed_at?: string
-  updated_at?: string
-  rating?: number
-  review_count?: number
-  instant_book?: boolean
-  instant_bookable?: boolean
+  created_at?: string
 }
 
 type OwnerProfile = {
@@ -45,20 +41,26 @@ export const revalidate = 60
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: bySlug } = await supabaseServer
+  const { data: bySlug, error: bySlugError } = await supabaseServer
     .from('cars')
     .select(CAR_DETAIL_FIELDS)
     .eq('slug', id)
     .maybeSingle()
     .overrideTypes<CarRecord | null, { merge: false }>()
+  if (bySlugError) {
+    console.error('CarDetail by slug query failed:', bySlugError.message)
+  }
   let car: CarRecord | null = bySlug
   if (!car) {
-    const { data: byId } = await supabaseServer
+    const { data: byId, error: byIdError } = await supabaseServer
       .from('cars')
       .select(CAR_DETAIL_FIELDS)
       .eq('id', id)
       .maybeSingle()
       .overrideTypes<CarRecord | null, { merge: false }>()
+    if (byIdError) {
+      console.error('CarDetail by id query failed:', byIdError.message)
+    }
     car = byId
   }
 
@@ -134,7 +136,11 @@ async function fetchSimilarRentals(car: CarRecord, pricePerDay: number) {
     }
   }
 
-  const { data } = await query.overrideTypes<CarRecord[], { merge: false }>()
+  const { data, error } = await query.overrideTypes<CarRecord[], { merge: false }>()
+  if (error) {
+    console.error('fetchSimilarRentals failed:', error.message)
+    return []
+  }
   if (!data) return []
   return data.filter((item) => item.is_for_rent && isListingPubliclyVisible(item))
 }
@@ -171,7 +177,7 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
 }
 
 async function fetchRecommendedSales(car: CarRecord) {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('cars')
     .select(CAR_RELATED_FIELDS)
     .eq('is_for_rent', false)
@@ -181,6 +187,10 @@ async function fetchRecommendedSales(car: CarRecord) {
     .order('created_at', { ascending: false })
     .limit(24)
     .overrideTypes<CarRecord[], { merge: false }>()
+  if (error) {
+    console.error('fetchRecommendedSales failed:', error.message)
+    return []
+  }
 
   if (!data) return []
 

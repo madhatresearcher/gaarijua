@@ -13,7 +13,7 @@ const defaultFilters: PartFilterFields = {
   maxPrice: '',
 }
 
-const PART_CARD_SELECT = 'id,slug,title,seller,category,images,thumbnail,price,price_formatted'
+const PART_CARD_SELECT = 'id,slug,title,seller,category,brand,images,price,created_at,compatible_models'
 
 type PartsExplorerProps = {
   initialParts: any[]
@@ -31,16 +31,11 @@ export default function PartsExplorer({ initialParts }: PartsExplorerProps) {
     try {
       let query = supabase.from('parts').select(PART_CARD_SELECT).order('created_at', { ascending: false }).limit(48)
 
-      if (appliedFilters.location) {
-        query = query.ilike('location', `%${appliedFilters.location}%`)
-      }
       if (appliedFilters.make) {
-        const look = `%${appliedFilters.make}%`
-        query = query.or(`brand.ilike.${look},make.ilike.${look}`)
+        query = query.ilike('brand', `%${appliedFilters.make}%`)
       }
       if (appliedFilters.model) {
-        const look = `%${appliedFilters.model}%`
-        query = query.or(`model.ilike.${look},compatible_models.ilike.${look}`)
+        query = query.contains('compatible_models', [appliedFilters.model])
       }
       if (appliedFilters.seller) {
         query = query.ilike('seller', `%${appliedFilters.seller}%`)
@@ -52,7 +47,12 @@ export default function PartsExplorer({ initialParts }: PartsExplorerProps) {
         query = query.lte('price', Number(appliedFilters.maxPrice))
       }
 
-      const { data } = await query
+      const { data, error } = await query
+      if (error) {
+        console.error('PartsExplorer fetch failed:', error.message)
+        setParts([])
+        return
+      }
       setParts(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)

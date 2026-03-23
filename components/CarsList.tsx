@@ -30,7 +30,7 @@ interface CarRecord {
 }
 
 const CAR_LIST_SELECT =
-  'id,slug,title,make,brand,model,location,status,closed_at,updated_at,is_for_rent,price_per_day,price_buy,images,rating,thumbnail'
+  'id,slug,title,brand,model,location,status,closed_at,created_at,is_for_rent,price_per_day,price_buy,images'
 
 export default function CarsList({ initialCars }: { initialCars: CarRecord[] }) {
   const [cars, setCars] = useState<CarRecord[]>((initialCars || []).filter((car) => isListingPubliclyVisible(car)))

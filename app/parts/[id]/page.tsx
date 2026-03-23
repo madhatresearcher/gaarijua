@@ -23,20 +23,26 @@ export const revalidate = 60
 export default async function PartDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: bySlug } = await supabaseServer
+  const { data: bySlug, error: bySlugError } = await supabaseServer
     .from('parts')
     .select(PART_DETAIL_FIELDS)
     .eq('slug', id)
     .maybeSingle()
     .overrideTypes<PartRecord | null, { merge: false }>()
+  if (bySlugError) {
+    console.error('PartDetail by slug query failed:', bySlugError.message)
+  }
   let part: PartRecord | null = bySlug
   if (!part) {
-    const { data: byId } = await supabaseServer
+    const { data: byId, error: byIdError } = await supabaseServer
       .from('parts')
       .select(PART_DETAIL_FIELDS)
       .eq('id', id)
       .maybeSingle()
       .overrideTypes<PartRecord | null, { merge: false }>()
+    if (byIdError) {
+      console.error('PartDetail by id query failed:', byIdError.message)
+    }
     part = byId
   }
 

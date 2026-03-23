@@ -6,14 +6,13 @@ export const CAR_CARD_FIELDS = [
   'model',
   'year',
   'images',
-  'thumbnail',
   'price_per_day',
   'price_buy',
   'is_for_rent',
   'location',
   'status',
   'closed_at',
-  'updated_at',
+  'created_at',
 ].join(',')
 
 export const CAR_HOME_FIELDS = [
@@ -28,11 +27,9 @@ export const PART_CARD_FIELDS = [
   'category',
   'brand',
   'images',
-  'thumbnail',
   'price',
   'seller',
   'created_at',
-  'sales_count',
 ].join(',')
 
 export const CAR_DETAIL_FIELDS = [
@@ -51,13 +48,9 @@ export const CAR_DETAIL_FIELDS = [
   'seller',
   'body_type',
   'owner_id',
-  'rating',
-  'review_count',
-  'instant_book',
-  'instant_bookable',
   'status',
   'closed_at',
-  'updated_at',
+  'created_at',
 ].join(',')
 
 export const CAR_RELATED_FIELDS = [
@@ -71,12 +64,11 @@ export const CAR_RELATED_FIELDS = [
   'is_for_rent',
   'price_per_day',
   'price_buy',
-  'rating',
   'seller',
   'body_type',
   'status',
   'closed_at',
-  'updated_at',
+  'created_at',
 ].join(',')
 
 export const PART_DETAIL_FIELDS = [

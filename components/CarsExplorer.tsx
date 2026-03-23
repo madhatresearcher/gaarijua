@@ -16,7 +16,7 @@ const defaultFilters: FilterFields = {
 }
 
 const CAR_CARD_SELECT =
-  'id,slug,title,make,brand,model,year,location,status,closed_at,updated_at,is_for_rent,price_per_day,price_buy,images,rating,thumbnail'
+  'id,slug,title,brand,model,year,location,status,closed_at,created_at,is_for_rent,price_per_day,price_buy,images'
 
 type CarsExplorerProps = {
   initialCars: any[]
@@ -45,7 +45,7 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
         query = query.ilike('location', `%${appliedFilters.location}%`)
       }
       if (appliedFilters.make) {
-        query = query.ilike('make', `%${appliedFilters.make}%`)
+        query = query.ilike('brand', `%${appliedFilters.make}%`)
       }
       if (appliedFilters.model) {
         query = query.ilike('model', `%${appliedFilters.model}%`)
@@ -60,7 +60,12 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
         query = query.lte('price_per_day', Number(appliedFilters.maxPrice))
       }
 
-      const { data } = await query
+      const { data, error } = await query
+      if (error) {
+        console.error('CarsExplorer fetch failed:', error.message)
+        setCars([])
+        return
+      }
       const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 48) : []
       setCars(nextCars)
     } finally {

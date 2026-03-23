@@ -18,13 +18,13 @@ type CarListRecord = {
   location?: string
   status?: string | null
   closed_at?: string | null
-  updated_at?: string | null
+  created_at?: string | null
 }
 
 export const revalidate = 60
 
 export default async function CarsPage() {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('cars')
     .select(CAR_CARD_FIELDS)
     .in('status', ['active', 'closed'])
@@ -32,6 +32,9 @@ export default async function CarsPage() {
     .order('created_at', { ascending: false })
     .limit(64)
     .overrideTypes<CarListRecord[], { merge: false }>()
+  if (error) {
+    console.error('CarsPage query failed:', error.message)
+  }
 
   const initialCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 32) : []
 

@@ -41,12 +41,30 @@ type UploadedImage = {
 }
 
 const MAX_UPLOAD_FILES = 8
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const MAX_FILE_SIZE_BYTES = 12 * 1024 * 1024
 const ALLOWED_IMAGE_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
   'image/avif': 'avif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+}
+const ALLOWED_IMAGE_EXTENSIONS = new Set(Object.values(ALLOWED_IMAGE_MIME))
+
+function getSupportedImageExtension(file: File) {
+  const mimeExtension = ALLOWED_IMAGE_MIME[file.type.toLowerCase()]
+  if (mimeExtension) {
+    return mimeExtension
+  }
+
+  const filenameExtension = file.name.split('.').pop()?.toLowerCase()
+  if (filenameExtension && ALLOWED_IMAGE_EXTENSIONS.has(filenameExtension)) {
+    return filenameExtension
+  }
+
+  return null
 }
 
 const BODY_TYPE_OPTIONS = ['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck']
@@ -97,11 +115,11 @@ export default function ManageAdsPanel() {
       return `You can upload up to ${MAX_UPLOAD_FILES} images per listing.`
     }
     for (const file of files) {
-      if (!ALLOWED_IMAGE_MIME[file.type]) {
-        return `${file.name}: unsupported format. Use JPG, PNG, WEBP, or AVIF.`
+      if (!getSupportedImageExtension(file)) {
+        return `${file.name}: unsupported format. Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF.`
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        return `${file.name}: exceeds 5MB size limit.`
+        return `${file.name}: exceeds 12MB size limit.`
       }
     }
     return null
@@ -119,7 +137,7 @@ export default function ManageAdsPanel() {
     if (!selectedFiles.length || !user) return []
     const results = await Promise.allSettled(
       selectedFiles.map(async (file, index) => {
-        const extension = ALLOWED_IMAGE_MIME[file.type] || 'jpg'
+        const extension = getSupportedImageExtension(file) || 'jpg'
         const uniqueToken =
           typeof crypto !== 'undefined' && 'randomUUID' in crypto
             ? crypto.randomUUID()
@@ -127,7 +145,7 @@ export default function ManageAdsPanel() {
         const filePath = `cars/${user.id}/${uniqueToken}.${extension}`
         const { data, error } = await supabase.storage
           .from(CAR_IMAGE_BUCKET)
-          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type || `image/${extension}` })
         if (error) {
           throw error
         }
@@ -458,7 +476,7 @@ export default function ManageAdsPanel() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif"
                       onChange={handleFileSelection}
                       className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm text-slate-700 focus:border-slate-900 focus:outline-none"
                     />

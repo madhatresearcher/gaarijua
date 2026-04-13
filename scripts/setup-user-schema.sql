@@ -252,7 +252,7 @@ create policy "car_images_auth_insert_own_path" on storage.objects
     bucket_id = 'car_images'
     and auth.uid() is not null
     and name like ('cars/' || auth.uid()::text || '/%')
-    and lower(name) ~ '\\.(jpg|jpeg|png|webp|avif)$'
+    and lower(name) ~ '\\.(jpg|jpeg|png|webp|avif|heic|heif)$'
   );
 
 create policy "car_images_auth_delete_own_path" on storage.objects

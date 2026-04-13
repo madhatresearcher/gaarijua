@@ -130,7 +130,7 @@ CREATE POLICY "car_images_auth_insert_own_path" ON storage.objects
     bucket_id = 'car_images'
     AND auth.uid() IS NOT NULL
     AND name LIKE ('cars/' || auth.uid()::text || '/%')
-    AND lower(name) ~ '\\.(jpg|jpeg|png|webp|avif)$'
+    AND lower(name) ~ '\\.(jpg|jpeg|png|webp|avif|heic|heif)$'
   );
 
 CREATE POLICY "car_images_auth_delete_own_path" ON storage.objects

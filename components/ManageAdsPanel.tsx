@@ -125,46 +125,58 @@ export default function ManageAdsPanel() {
     return null
   }
 
-  const cleanupUploadedFiles = async (paths: string[]) => {
+  const cleanupUploadedFiles = async (paths: string[], accessToken?: string) => {
     if (!paths.length) return
+    if (accessToken) {
+      const response = await fetch('/api/listing-images', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ paths }),
+      })
+
+      if (!response.ok) {
+        let nextMessage = 'Failed to cleanup uploaded files.'
+        try {
+          const body = await response.json()
+          if (typeof body?.error === 'string') {
+            nextMessage = body.error
+          }
+        } catch {}
+        console.error(nextMessage)
+      }
+
+      return
+    }
+
     const { error } = await supabase.storage.from(CAR_IMAGE_BUCKET).remove(paths)
     if (error) {
       console.error('Failed to cleanup uploaded files:', error.message)
     }
   }
 
-  const uploadFilesToStorage = async (): Promise<UploadedImage[]> => {
-    if (!selectedFiles.length || !user) return []
-    const results = await Promise.allSettled(
-      selectedFiles.map(async (file, index) => {
-        const extension = getSupportedImageExtension(file) || 'jpg'
-        const uniqueToken =
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${index}`
-        const filePath = `cars/${user.id}/${uniqueToken}.${extension}`
-        const { data, error } = await supabase.storage
-          .from(CAR_IMAGE_BUCKET)
-          .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type || `image/${extension}` })
-        if (error) {
-          throw error
-        }
-        const { data: urlData } = supabase.storage.from(CAR_IMAGE_BUCKET).getPublicUrl(data.path)
-        return { path: data.path, publicUrl: urlData.publicUrl }
-      })
-    )
+  const uploadFilesToStorage = async (accessToken: string): Promise<UploadedImage[]> => {
+    if (!selectedFiles.length) return []
 
-    const uploaded = results
-      .filter((result): result is PromiseFulfilledResult<UploadedImage> => result.status === 'fulfilled')
-      .map((result) => result.value)
+    const formData = new FormData()
+    selectedFiles.forEach((file) => formData.append('files', file))
 
-    const failed = results.find((result) => result.status === 'rejected')
-    if (failed) {
-      await cleanupUploadedFiles(uploaded.map((image) => image.path))
-      throw failed.reason
+    const response = await fetch('/api/listing-images', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    })
+
+    const body = await response.json().catch(() => null)
+    if (!response.ok) {
+      throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to upload photos.')
     }
 
-    return uploaded
+    return Array.isArray(body?.images) ? body.images : []
   }
 
 
@@ -239,9 +251,18 @@ export default function ManageAdsPanel() {
         data: { user: authenticatedUser },
         error: authError,
       } = await supabase.auth.getUser()
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
 
       if (authError || !authenticatedUser) {
         setMessage('Your sign-in session is not ready yet. Open the magic link again, wait for the redirect to finish, then try again.')
+        return
+      }
+
+      if (sessionError || !session?.access_token) {
+        setMessage('Your upload session is missing. Open the magic link again, wait for the redirect to finish, then try again.')
         return
       }
 
@@ -257,7 +278,7 @@ export default function ManageAdsPanel() {
           return
         }
         setUploadingImages(true)
-        uploadedImages = await uploadFilesToStorage()
+        uploadedImages = await uploadFilesToStorage(session.access_token)
       }
       const payload = {
         title: form.title.trim(),
@@ -279,7 +300,7 @@ export default function ManageAdsPanel() {
 
       const { error } = await supabase.from('cars').insert(payload)
       if (error) {
-        await cleanupUploadedFiles(uploadedImages.map((image) => image.path))
+        await cleanupUploadedFiles(uploadedImages.map((image) => image.path), session.access_token)
         setMessage(error.message)
         return
       }

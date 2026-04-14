@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase-client'
@@ -16,7 +16,25 @@ const SUPPORTED_EMAIL_OTP_TYPES = new Set<EmailOtpType>([
 
 type CallbackState = 'working' | 'error'
 
-export default function AuthCallbackPage() {
+function AuthCallbackShell({ state, message }: { state: CallbackState; message: string }) {
+  return (
+    <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gradient-to-br from-slate-50 via-white to-amber-50 px-4 py-12">
+      <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white/90 px-8 py-10 shadow-2xl shadow-amber-200/40 backdrop-blur">
+        <div className="space-y-3 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Gaarijua auth</p>
+          <h1 className="text-3xl font-black text-slate-900">
+            {state === 'working' ? 'Signing you in' : 'Sign-in needs attention'}
+          </h1>
+          <p className={`text-sm ${state === 'error' ? 'text-rose-600' : 'text-slate-500'}`}>
+            {message}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [state, setState] = useState<CallbackState>('working')
@@ -81,19 +99,13 @@ export default function AuthCallbackPage() {
     }
   }, [nextPath, router, searchParams])
 
+  return <AuthCallbackShell state={state} message={message} />
+}
+
+export default function AuthCallbackPage() {
   return (
-    <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gradient-to-br from-slate-50 via-white to-amber-50 px-4 py-12">
-      <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white/90 px-8 py-10 shadow-2xl shadow-amber-200/40 backdrop-blur">
-        <div className="space-y-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Gaarijua auth</p>
-          <h1 className="text-3xl font-black text-slate-900">
-            {state === 'working' ? 'Signing you in' : 'Sign-in needs attention'}
-          </h1>
-          <p className={`text-sm ${state === 'error' ? 'text-rose-600' : 'text-slate-500'}`}>
-            {message}
-          </p>
-        </div>
-      </div>
-    </section>
+    <Suspense fallback={<AuthCallbackShell state="working" message="Finishing your sign-in..." />}>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }

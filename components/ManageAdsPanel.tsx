@@ -235,6 +235,21 @@ export default function ManageAdsPanel() {
     setSaving(true)
     let uploadedImages: UploadedImage[] = []
     try {
+      const {
+        data: { user: authenticatedUser },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (authError || !authenticatedUser) {
+        setMessage('Your sign-in session is not ready yet. Open the magic link again, wait for the redirect to finish, then try again.')
+        return
+      }
+
+      if (authenticatedUser.id !== user.id) {
+        setMessage('Your sign-in session changed. Refresh the page and try again.')
+        return
+      }
+
       if (selectedFiles.length) {
         const validationError = validateSelectedFiles(selectedFiles)
         if (validationError) {
@@ -259,7 +274,7 @@ export default function ManageAdsPanel() {
         price_buy: form.type === 'buy' ? Number(form.price) || null : null,
         status: form.status,
         closed_at: form.status === 'closed' ? new Date().toISOString() : null,
-        owner_id: user.id,
+        owner_id: authenticatedUser.id,
       }
 
       const { error } = await supabase.from('cars').insert(payload)

@@ -19,7 +19,7 @@ export default function SignInPage() {
     setStatus('sending')
     setFeedback(null)
 
-    const redirectTo = typeof window === 'undefined' ? '/' : `${window.location.origin}/host`
+    const redirectTo = typeof window === 'undefined' ? '/' : `${window.location.origin}/auth/callback?next=/host`
     const normalizedEmail = email.trim().toLowerCase()
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,

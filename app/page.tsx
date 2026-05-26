@@ -1,42 +1,15 @@
 import Link from 'next/link'
-import { supabaseServer } from '../lib/supabase-server'
+import { hasDatabaseEnv } from '../lib/db'
+import {
+  getPromotedCars as queryPromotedCars,
+  getTrendingCars as queryTrendingCars,
+  getLatestCars as queryLatestCars,
+  getPartsForListing,
+} from '../lib/db/queries'
 import { isListingPubliclyVisible } from '../lib/listing-visibility'
-import { CAR_HOME_FIELDS, PART_CARD_FIELDS } from '../lib/selects'
 import Carousel from '../components/Carousel'
 import HeroCard from '../components/HeroCard'
 import ListingCard from '../components/ListingCard'
-
-type HomeCarRecord = {
-  id?: string
-  slug?: string
-  title?: string
-  brand?: string
-  model?: string
-  year?: number
-  images?: string[]
-  thumbnail?: string
-  price_per_day?: number
-  price_buy?: number
-  is_for_rent?: boolean
-  location?: string
-  status?: string | null
-  closed_at?: string | null
-  created_at?: string | null
-  views_count?: number
-}
-
-type HomePartRecord = {
-  id?: string
-  slug?: string
-  title?: string
-  category?: string
-  brand?: string
-  images?: string[]
-  thumbnail?: string
-  price?: number
-  seller?: string
-  created_at?: string
-}
 
 export const revalidate = 60 // ISR: revalidate every 60 seconds
 
@@ -49,70 +22,61 @@ const categories = [
 ]
 
 async function getPromotedCars() {
-  const { data, error } = await supabaseServer
-    .from('cars')
-    .select(CAR_HOME_FIELDS)
-    .in('status', ['active', 'closed'])
-    .eq('promoted', true)
-    .gte('promoted_expires', new Date().toISOString())
-    .order('promoted_expires', { ascending: true })
-    .limit(24)
-    .overrideTypes<HomeCarRecord[], { merge: false }>()
-  if (error) {
-    console.error('getPromotedCars failed:', error.message)
-    return []
-  }
-  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
+  const data = await queryPromotedCars(24)
+  return data.filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getTrendingCars() {
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-  const { data, error } = await supabaseServer
-    .from('cars')
-    .select(CAR_HOME_FIELDS)
-    .in('status', ['active', 'closed'])
-    .gt('views_count', 0)
-    .gte('created_at', threeDaysAgo)
-    .order('views_count', { ascending: false })
-    .limit(24)
-    .overrideTypes<HomeCarRecord[], { merge: false }>()
-  if (error) {
-    console.error('getTrendingCars failed:', error.message)
-    return []
-  }
-  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
+  const data = await queryTrendingCars(24)
+  return data.filter((car) => isListingPubliclyVisible(car)).slice(0, 12)
 }
 
 async function getHotParts() {
-  const { data, error } = await supabaseServer
-    .from('parts')
-    .select(PART_CARD_FIELDS)
-    .order('created_at', { ascending: false })
-    .limit(12)
-    .overrideTypes<HomePartRecord[], { merge: false }>()
-  if (error) {
-    console.error('getHotParts failed:', error.message)
-    return []
-  }
-  return data ?? []
+  return queryHotParts()
+}
+
+async function queryHotParts() {
+  return getPartsForListing({}, 12)
 }
 
 async function getLatestCars() {
-  const { data, error } = await supabaseServer
-    .from('cars')
-    .select(CAR_HOME_FIELDS)
-    .in('status', ['active', 'closed'])
-    .order('created_at', { ascending: false })
-    .limit(32)
-    .overrideTypes<HomeCarRecord[], { merge: false }>()
-  if (error) {
-    console.error('getLatestCars failed:', error.message)
-    return []
-  }
-  return (data ?? []).filter((car) => isListingPubliclyVisible(car)).slice(0, 8)
+  const data = await queryLatestCars(32)
+  return data.filter((car) => isListingPubliclyVisible(car)).slice(0, 8)
 }
 
 export default async function Home() {
+  if (!hasDatabaseEnv()) {
+    return (
+      <div className="min-h-screen bg-stone-50">
+        <section className="bg-white">
+          <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-8">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">East Africaâ€™s trusted auto market</p>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
+              Browse verified rentals, sales, and spare parts across Uganda
+            </h1>
+            <p className="text-lg text-slate-500 max-w-3xl mx-auto">
+              Gaarijua is almost ready. Configure the DATABASE_URL environment variable in Cloudflare to load live listings.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link
+                href="/cars"
+                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-lg shadow-slate-900/30 transition hover:-translate-y-0.5"
+              >
+                Browse Cars
+              </Link>
+              <Link
+                href="/parts"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-slate-900 transition hover:bg-slate-50"
+              >
+                Browse Parts
+              </Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
   const [promotedCars, trendingCars, hotParts, latestCars] = await Promise.all([
     getPromotedCars(),
     getTrendingCars(),

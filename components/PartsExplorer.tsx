@@ -1,6 +1,5 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase-client'
 import PartsFilterBar, { PartFilterFields } from './PartsFilterBar'
 import PartCard from './PartCard'
 
@@ -12,8 +11,6 @@ const defaultFilters: PartFilterFields = {
   minPrice: '',
   maxPrice: '',
 }
-
-const PART_CARD_SELECT = 'id,slug,title,seller,category,brand,images,price,created_at,compatible_models'
 
 type PartsExplorerProps = {
   initialParts: any[]
@@ -29,31 +26,24 @@ export default function PartsExplorer({ initialParts }: PartsExplorerProps) {
   const fetchParts = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase.from('parts').select(PART_CARD_SELECT).order('created_at', { ascending: false }).limit(48)
+      const params = new URLSearchParams()
+      if (appliedFilters.make) params.set('make', appliedFilters.make)
+      if (appliedFilters.model) params.set('model', appliedFilters.model)
+      if (appliedFilters.seller) params.set('seller', appliedFilters.seller)
+      if (appliedFilters.minPrice) params.set('minPrice', appliedFilters.minPrice)
+      if (appliedFilters.maxPrice) params.set('maxPrice', appliedFilters.maxPrice)
 
-      if (appliedFilters.make) {
-        query = query.ilike('brand', `%${appliedFilters.make}%`)
-      }
-      if (appliedFilters.model) {
-        query = query.contains('compatible_models', [appliedFilters.model])
-      }
-      if (appliedFilters.seller) {
-        query = query.ilike('seller', `%${appliedFilters.seller}%`)
-      }
-      if (appliedFilters.minPrice) {
-        query = query.gte('price', Number(appliedFilters.minPrice))
-      }
-      if (appliedFilters.maxPrice) {
-        query = query.lte('price', Number(appliedFilters.maxPrice))
-      }
-
-      const { data, error } = await query
-      if (error) {
-        console.error('PartsExplorer fetch failed:', error.message)
+      const response = await fetch(`/api/parts?${params.toString()}`)
+      if (!response.ok) {
+        console.error('PartsExplorer fetch failed:', response.status)
         setParts([])
         return
       }
-      setParts(Array.isArray(data) ? data : [])
+      const body = await response.json()
+      setParts(Array.isArray(body?.parts) ? body.parts : [])
+    } catch (error) {
+      console.error('PartsExplorer fetch failed:', (error as Error).message)
+      setParts([])
     } finally {
       setLoading(false)
     }

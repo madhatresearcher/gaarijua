@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useMemo, useState } from 'react'
-import { supabase } from '../../../lib/supabase-client'
+import { signIn } from 'next-auth/react'
 
 type Status = 'idle' | 'sending' | 'sent' | 'error'
 
@@ -19,16 +19,16 @@ export default function SignInPage() {
     setStatus('sending')
     setFeedback(null)
 
-    const redirectTo = typeof window === 'undefined' ? '/' : `${window.location.origin}/auth/callback?next=/host`
     const normalizedEmail = email.trim().toLowerCase()
-    const { error } = await supabase.auth.signInWithOtp({
+    const result = await signIn('resend', {
       email: normalizedEmail,
-      options: { emailRedirectTo: redirectTo },
+      redirect: false,
+      redirectTo: '/host',
     })
 
-    if (error) {
+    if (result?.error) {
       setStatus('error')
-      setFeedback(error.message)
+      setFeedback('We could not send your magic link. Check the address and try again.')
       return
     }
 

@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSupabaseUser } from '../hooks/useSupabaseUser'
+import { useUser } from '../hooks/useUser'
 
 // HeaderGlassy uses a 10px scroll threshold to toggle between solid and frosted-glass classes.
 export default function HeaderGlassy() {
@@ -28,13 +28,12 @@ export default function HeaderGlassy() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [searchOpen])
 
-  const { user, profile, signOut } = useSupabaseUser()
+  const { user, profile, signOut } = useUser()
   const userLabel = useMemo(() => {
     if (!user) return null
     return (
       profile?.display_name ||
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
+      user.name ||
       user.email?.split('@')[0] ||
       user.email
     )

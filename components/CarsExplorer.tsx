@@ -1,6 +1,5 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase-client'
 import { isListingPubliclyVisible } from '../lib/listing-visibility'
 import CarsToggle from './CarsToggle'
 import CarsFilterBar, { FilterFields } from './CarsFilterBar'
@@ -14,9 +13,6 @@ const defaultFilters: FilterFields = {
   minPrice: '',
   maxPrice: '',
 }
-
-const CAR_CARD_SELECT =
-  'id,slug,title,brand,model,year,location,status,closed_at,created_at,is_for_rent,price_per_day,price_buy,images'
 
 type CarsExplorerProps = {
   initialCars: any[]
@@ -33,41 +29,27 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
   const fetchCars = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('cars')
-        .select(CAR_CARD_SELECT)
-        .in('status', ['active', 'closed'])
-        .order('created_at', { ascending: false })
-        .limit(96)
-      query = query.eq('is_for_rent', mode === 'rent')
+      const params = new URLSearchParams({ mode })
+      if (appliedFilters.location) params.set('location', appliedFilters.location)
+      if (appliedFilters.make) params.set('make', appliedFilters.make)
+      if (appliedFilters.model) params.set('model', appliedFilters.model)
+      if (appliedFilters.year) params.set('year', appliedFilters.year)
+      if (mode === 'rent' && appliedFilters.minPrice) params.set('minPrice', appliedFilters.minPrice)
+      if (mode === 'rent' && appliedFilters.maxPrice) params.set('maxPrice', appliedFilters.maxPrice)
 
-      if (appliedFilters.location) {
-        query = query.ilike('location', `%${appliedFilters.location}%`)
-      }
-      if (appliedFilters.make) {
-        query = query.ilike('brand', `%${appliedFilters.make}%`)
-      }
-      if (appliedFilters.model) {
-        query = query.ilike('model', `%${appliedFilters.model}%`)
-      }
-      if (appliedFilters.year) {
-        query = query.eq('year', Number(appliedFilters.year))
-      }
-      if (mode === 'rent' && appliedFilters.minPrice) {
-        query = query.gte('price_per_day', Number(appliedFilters.minPrice))
-      }
-      if (mode === 'rent' && appliedFilters.maxPrice) {
-        query = query.lte('price_per_day', Number(appliedFilters.maxPrice))
-      }
-
-      const { data, error } = await query
-      if (error) {
-        console.error('CarsExplorer fetch failed:', error.message)
+      const response = await fetch(`/api/cars?${params.toString()}`)
+      if (!response.ok) {
+        console.error('CarsExplorer fetch failed:', response.status)
         setCars([])
         return
       }
-      const nextCars = Array.isArray(data) ? data.filter((car) => isListingPubliclyVisible(car)).slice(0, 48) : []
+      const body = await response.json()
+      const data = Array.isArray(body?.cars) ? body.cars : []
+      const nextCars = data.filter((car: any) => isListingPubliclyVisible(car)).slice(0, 48)
       setCars(nextCars)
+    } catch (error) {
+      console.error('CarsExplorer fetch failed:', (error as Error).message)
+      setCars([])
     } finally {
       setLoading(false)
     }

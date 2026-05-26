@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase-client'
-import { useSupabaseUser } from '../hooks/useSupabaseUser'
+import { useUser } from '../hooks/useUser'
 
 type ListingType = 'rent' | 'buy'
 type ListingStatus = 'active' | 'closed' | 'draft'
@@ -87,18 +86,8 @@ const STATUS_LABELS: Record<ListingStatus, string> = {
   draft: 'Draft',
 }
 
-const generateSlug = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .concat('-', Date.now().toString().slice(-4))
-
-// Must match Supabase bucket name exactly (case- and character-sensitive).
-const CAR_IMAGE_BUCKET = 'car_images'
-
 export default function ManageAdsPanel() {
-  const { user } = useSupabaseUser()
+  const { user } = useUser()
   const [form, setForm] = useState(INITIAL_FORM)
   const [listings, setListings] = useState<EditableListing[]>([])
   const [loading, setLoading] = useState(false)
@@ -125,39 +114,27 @@ export default function ManageAdsPanel() {
     return null
   }
 
-  const cleanupUploadedFiles = async (paths: string[], accessToken?: string) => {
+  const cleanupUploadedFiles = async (paths: string[]) => {
     if (!paths.length) return
-    if (accessToken) {
-      const response = await fetch('/api/listing-images', {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ paths }),
-      })
+    const response = await fetch('/api/listing-images', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths }),
+    })
 
-      if (!response.ok) {
-        let nextMessage = 'Failed to cleanup uploaded files.'
-        try {
-          const body = await response.json()
-          if (typeof body?.error === 'string') {
-            nextMessage = body.error
-          }
-        } catch {}
-        console.error(nextMessage)
-      }
-
-      return
-    }
-
-    const { error } = await supabase.storage.from(CAR_IMAGE_BUCKET).remove(paths)
-    if (error) {
-      console.error('Failed to cleanup uploaded files:', error.message)
+    if (!response.ok) {
+      let nextMessage = 'Failed to cleanup uploaded files.'
+      try {
+        const body = await response.json()
+        if (typeof body?.error === 'string') {
+          nextMessage = body.error
+        }
+      } catch {}
+      console.error(nextMessage)
     }
   }
 
-  const uploadFilesToStorage = async (accessToken: string): Promise<UploadedImage[]> => {
+  const uploadFilesToStorage = async (): Promise<UploadedImage[]> => {
     if (!selectedFiles.length) return []
 
     const formData = new FormData()
@@ -165,9 +142,6 @@ export default function ManageAdsPanel() {
 
     const response = await fetch('/api/listing-images', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
       body: formData,
     })
 
@@ -202,17 +176,17 @@ export default function ManageAdsPanel() {
   const fetchAds = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('cars')
-      .select('id,title,brand,model,status,is_for_rent,price_per_day,price_buy,body_type,location,description')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false })
-    setLoading(false)
-    if (error) {
-      setMessage(error.message)
-      return
+    try {
+      const response = await fetch('/api/my-listings')
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        setMessage(typeof body?.error === 'string' ? body.error : 'Failed to load your listings.')
+        return
+      }
+      setListings(Array.isArray(body?.listings) ? body.listings : [])
+    } finally {
+      setLoading(false)
     }
-    setListings(Array.isArray(data) ? data : [])
   }, [user])
 
   useEffect(() => {
@@ -247,30 +221,6 @@ export default function ManageAdsPanel() {
     setSaving(true)
     let uploadedImages: UploadedImage[] = []
     try {
-      const {
-        data: { user: authenticatedUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (authError || !authenticatedUser) {
-        setMessage('Your sign-in session is not ready yet. Open the magic link again, wait for the redirect to finish, then try again.')
-        return
-      }
-
-      if (sessionError || !session?.access_token) {
-        setMessage('Your upload session is missing. Open the magic link again, wait for the redirect to finish, then try again.')
-        return
-      }
-
-      if (authenticatedUser.id !== user.id) {
-        setMessage('Your sign-in session changed. Refresh the page and try again.')
-        return
-      }
-
       if (selectedFiles.length) {
         const validationError = validateSelectedFiles(selectedFiles)
         if (validationError) {
@@ -278,7 +228,8 @@ export default function ManageAdsPanel() {
           return
         }
         setUploadingImages(true)
-        uploadedImages = await uploadFilesToStorage(session.access_token)
+        uploadedImages = await uploadFilesToStorage()
+        setUploadingImages(false)
       }
       const payload = {
         title: form.title.trim(),
@@ -287,21 +238,22 @@ export default function ManageAdsPanel() {
         year: form.year ? Number(form.year) : null,
         description: form.description.trim() || null,
         images: uploadedImages.map((image) => image.publicUrl),
-        slug: form.title ? generateSlug(form.title) : generateSlug('listing'),
         body_type: form.body_type,
         location: form.location || 'Kampala, Uganda',
-        is_for_rent: form.type === 'rent',
-        price_per_day: form.type === 'rent' ? Number(form.price) || null : null,
-        price_buy: form.type === 'buy' ? Number(form.price) || null : null,
+        type: form.type,
+        price: form.price,
         status: form.status,
-        closed_at: form.status === 'closed' ? new Date().toISOString() : null,
-        owner_id: authenticatedUser.id,
       }
 
-      const { error } = await supabase.from('cars').insert(payload)
-      if (error) {
-        await cleanupUploadedFiles(uploadedImages.map((image) => image.path), session.access_token)
-        setMessage(error.message)
+      const response = await fetch('/api/my-listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        await cleanupUploadedFiles(uploadedImages.map((image) => image.path))
+        setMessage(typeof body?.error === 'string' ? body.error : 'Failed to create listing.')
         return
       }
       setMessage('Listing created successfully!')
@@ -327,31 +279,34 @@ export default function ManageAdsPanel() {
       return
     }
 
-    const updatesPayload: Record<string, any> = {}
+    const payload: Record<string, unknown> = { id: listing.id, is_for_rent: listing.is_for_rent }
+    let hasChange = false
     if (partial.description !== undefined) {
-      updatesPayload.description = partial.description ? partial.description.trim() : null
+      payload.description = partial.description ? partial.description.trim() : null
+      hasChange = true
     }
     if (partial.status && partial.status !== listing.status) {
-      updatesPayload.status = partial.status
-      updatesPayload.closed_at = partial.status === 'closed' ? new Date().toISOString() : null
+      payload.status = partial.status
+      hasChange = true
     }
     if (partial.price !== undefined) {
-      const price = Number(partial.price)
-      if (listing.is_for_rent) {
-        updatesPayload.price_per_day = isNaN(price) ? null : price
-      } else {
-        updatesPayload.price_buy = isNaN(price) ? null : price
-      }
+      payload.price = partial.price
+      hasChange = true
     }
 
-    if (Object.keys(updatesPayload).length === 0) {
+    if (!hasChange) {
       setMessage('No updates to save.')
       return
     }
 
-    const { error } = await supabase.from('cars').update(updatesPayload).eq('id', listing.id)
-    if (error) {
-      setMessage(error.message)
+    const response = await fetch('/api/my-listings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => null)
+      setMessage(typeof body?.error === 'string' ? body.error : 'Failed to update listing.')
       return
     }
     setMessage('Listing updated')

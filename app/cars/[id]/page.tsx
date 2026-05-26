@@ -1,7 +1,11 @@
 import { notFound } from 'next/navigation'
-import { supabaseServer } from '../../../lib/supabase-server'
+import {
+  getCarBySlugOrId,
+  getOwnerProfile,
+  getSimilarRentals,
+  getRecommendedSales,
+} from '../../../lib/db/queries'
 import { isListingPubliclyVisible } from '../../../lib/listing-visibility'
-import { CAR_DETAIL_FIELDS, CAR_RELATED_FIELDS } from '../../../lib/selects'
 import CarDetailLayout from '../../../components/CarDetailLayout'
 
 type CarRecord = {
@@ -41,28 +45,7 @@ export const revalidate = 60
 export default async function CarDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: bySlug, error: bySlugError } = await supabaseServer
-    .from('cars')
-    .select(CAR_DETAIL_FIELDS)
-    .eq('slug', id)
-    .maybeSingle()
-    .overrideTypes<CarRecord | null, { merge: false }>()
-  if (bySlugError) {
-    console.error('CarDetail by slug query failed:', bySlugError.message)
-  }
-  let car: CarRecord | null = bySlug
-  if (!car) {
-    const { data: byId, error: byIdError } = await supabaseServer
-      .from('cars')
-      .select(CAR_DETAIL_FIELDS)
-      .eq('id', id)
-      .maybeSingle()
-      .overrideTypes<CarRecord | null, { merge: false }>()
-    if (byIdError) {
-      console.error('CarDetail by id query failed:', byIdError.message)
-    }
-    car = byId
-  }
+  let car: CarRecord | null = (await getCarBySlugOrId(id)) as CarRecord | null
 
   if (!car || !isListingPubliclyVisible(car)) {
     return notFound()
@@ -70,16 +53,11 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
 
   const pricePerDay = Number(car.price_per_day ?? car.pricePerDay ?? 0)
   const isRental = Boolean(car.is_for_rent || pricePerDay)
-  const ownerProfilePromise = car.owner_id
-    ? supabaseServer
-        .from('profiles')
-        .select('display_name,vendor_type,created_at')
-        .eq('id', car.owner_id)
-        .maybeSingle()
-        .overrideTypes<OwnerProfile | null, { merge: false }>()
-    : Promise.resolve({ data: null })
+  const ownerProfilePromise: Promise<OwnerProfile | null> = car.owner_id
+    ? getOwnerProfile(car.owner_id)
+    : Promise.resolve(null)
   const relatedPromise: Promise<CarRecord[]> = isRental ? fetchSimilarRentals(car, pricePerDay) : fetchRecommendedSales(car)
-  const [{ data: ownerProfile }, relatedListings]: [{ data: OwnerProfile | null }, CarRecord[]] = await Promise.all([
+  const [ownerProfile, relatedListings]: [OwnerProfile | null, CarRecord[]] = await Promise.all([
     ownerProfilePromise,
     relatedPromise,
   ])
@@ -116,32 +94,7 @@ export default async function CarDetail({ params }: { params: Promise<{ id: stri
 }
 
 async function fetchSimilarRentals(car: CarRecord, pricePerDay: number) {
-  const minPrice = pricePerDay ? Math.max(0, pricePerDay * 0.6) : 0
-  const maxPrice = pricePerDay ? pricePerDay * 1.4 : undefined
-
-  let query = supabaseServer
-    .from('cars')
-    .select(CAR_RELATED_FIELDS)
-    .eq('is_for_rent', true)
-    .in('status', ['active', 'closed'])
-    .neq('id', car.id)
-    .neq('slug', car.slug)
-    .order('created_at', { ascending: false })
-    .limit(24)
-
-  if (pricePerDay) {
-    query = query.gte('price_per_day', minPrice)
-    if (maxPrice !== undefined) {
-      query = query.lte('price_per_day', maxPrice)
-    }
-  }
-
-  const { data, error } = await query.overrideTypes<CarRecord[], { merge: false }>()
-  if (error) {
-    console.error('fetchSimilarRentals failed:', error.message)
-    return []
-  }
-  if (!data) return []
+  const data = (await getSimilarRentals(car.id, car.slug ?? null, pricePerDay)) as CarRecord[]
   return data.filter((item) => item.is_for_rent && isListingPubliclyVisible(item))
 }
 
@@ -177,22 +130,7 @@ function prioritizeSimilar(listings: CarRecord[], current: CarRecord, currentPri
 }
 
 async function fetchRecommendedSales(car: CarRecord) {
-  const { data, error } = await supabaseServer
-    .from('cars')
-    .select(CAR_RELATED_FIELDS)
-    .eq('is_for_rent', false)
-    .in('status', ['active', 'closed'])
-    .neq('id', car.id)
-    .neq('slug', car.slug)
-    .order('created_at', { ascending: false })
-    .limit(24)
-    .overrideTypes<CarRecord[], { merge: false }>()
-  if (error) {
-    console.error('fetchRecommendedSales failed:', error.message)
-    return []
-  }
-
-  if (!data) return []
+  const data = (await getRecommendedSales(car.id, car.slug ?? null)) as CarRecord[]
 
   const unique: CarRecord[] = []
   const seen = new Set<string>()

@@ -1,16 +1,5 @@
 /** @type {import('next').NextConfig} */
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-let supabaseOrigin = ''
-try {
-  supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : ''
-} catch {
-  supabaseOrigin = ''
-}
-
-const connectSrc = ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co']
-if (supabaseOrigin) {
-  connectSrc.push(supabaseOrigin)
-}
+const connectSrc = ["'self'"]
 
 module.exports = {
   reactStrictMode: true,

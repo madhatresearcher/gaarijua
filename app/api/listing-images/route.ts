@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '../../../lib/supabase-admin'
+import { DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { auth } from '../../../auth'
+import { getR2Client, hasR2Env, r2PublicUrl, R2_BUCKET } from '../../../lib/r2'
 
-const CAR_IMAGE_BUCKET = 'car_images'
+export const dynamic = 'force-dynamic'
+
 const MAX_UPLOAD_FILES = 8
 const MAX_FILE_SIZE_BYTES = 12 * 1024 * 1024
 const ALLOWED_IMAGE_MIME: Record<string, string> = {
@@ -15,66 +18,47 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
 }
 const ALLOWED_IMAGE_EXTENSIONS = new Set(Object.values(ALLOWED_IMAGE_MIME))
 
-function getBearerToken(request: NextRequest) {
-  const authorization = request.headers.get('authorization') || ''
-  if (!authorization.startsWith('Bearer ')) {
-    return null
-  }
-  return authorization.slice('Bearer '.length).trim() || null
-}
-
-async function getAuthenticatedUser(request: NextRequest) {
-  const token = getBearerToken(request)
-  if (!token) {
-    return { user: null, error: 'Missing authorization token.' }
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(token)
-
-  if (error || !user) {
-    return { user: null, error: 'Your session is no longer valid. Sign in again and retry.' }
-  }
-
-  return { user, error: null }
-}
-
 function getSupportedImageExtension(file: File) {
   const mimeExtension = ALLOWED_IMAGE_MIME[file.type.toLowerCase()]
   if (mimeExtension) {
     return mimeExtension
   }
-
   const filenameExtension = file.name.split('.').pop()?.toLowerCase()
   if (filenameExtension && ALLOWED_IMAGE_EXTENSIONS.has(filenameExtension)) {
     return filenameExtension
   }
-
   return null
 }
 
+async function requireUser() {
+  if (!hasR2Env()) {
+    return { userId: null, error: 'Image uploads are not configured on this deployment yet.', status: 500 as const }
+  }
+  const session = await auth()
+  if (!session?.user?.id) {
+    return { userId: null, error: 'Your session is no longer valid. Sign in again and retry.', status: 401 as const }
+  }
+  return { userId: session.user.id, error: null, status: 200 as const }
+}
+
 export async function POST(request: NextRequest) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (!user) {
-    return NextResponse.json({ error: authError }, { status: 401 })
+  const { userId, error: authError, status } = await requireUser()
+  if (!userId) {
+    return NextResponse.json({ error: authError }, { status })
   }
 
   const formData = await request.formData()
-  const files = formData
-    .getAll('files')
-    .filter((entry): entry is File => entry instanceof File)
+  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
 
   if (!files.length) {
     return NextResponse.json({ error: 'Select at least one image to upload.' }, { status: 400 })
   }
-
   if (files.length > MAX_UPLOAD_FILES) {
     return NextResponse.json({ error: `You can upload up to ${MAX_UPLOAD_FILES} images per listing.` }, { status: 400 })
   }
 
-  const uploadedPaths: string[] = []
+  const client = getR2Client()
+  const uploadedKeys: string[] = []
 
   try {
     const uploads = await Promise.all(
@@ -83,37 +67,38 @@ export async function POST(request: NextRequest) {
         if (!extension) {
           throw new Error(`${file.name}: unsupported format. Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF.`)
         }
-
         if (file.size > MAX_FILE_SIZE_BYTES) {
           throw new Error(`${file.name}: exceeds 12MB size limit.`)
         }
 
-        const filePath = `cars/${user.id}/${crypto.randomUUID()}.${extension}`
-        const fileBuffer = Buffer.from(await file.arrayBuffer())
-        const { data, error } = await supabaseAdmin.storage
-          .from(CAR_IMAGE_BUCKET)
-          .upload(filePath, fileBuffer, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type || `image/${extension}`,
+        const key = `cars/${userId}/${crypto.randomUUID()}.${extension}`
+        const buffer = Buffer.from(await file.arrayBuffer())
+        await client.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: key,
+            Body: buffer,
+            ContentType: file.type || `image/${extension}`,
+            CacheControl: 'public, max-age=31536000, immutable',
           })
-
-        if (error) {
-          throw new Error(error.message)
-        }
-
-        uploadedPaths.push(data.path)
-        const { data: urlData } = supabaseAdmin.storage.from(CAR_IMAGE_BUCKET).getPublicUrl(data.path)
-        return { path: data.path, publicUrl: urlData.publicUrl }
+        )
+        uploadedKeys.push(key)
+        return { path: key, publicUrl: r2PublicUrl(key) }
       })
     )
 
     return NextResponse.json({ images: uploads })
   } catch (error) {
-    if (uploadedPaths.length) {
-      await supabaseAdmin.storage.from(CAR_IMAGE_BUCKET).remove(uploadedPaths)
+    if (uploadedKeys.length) {
+      await client
+        .send(
+          new DeleteObjectsCommand({
+            Bucket: R2_BUCKET,
+            Delete: { Objects: uploadedKeys.map((Key) => ({ Key })) },
+          })
+        )
+        .catch(() => undefined)
     }
-
     return NextResponse.json(
       { error: (error as Error).message || 'Failed to upload photos.' },
       { status: 400 }
@@ -122,27 +107,34 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { user, error: authError } = await getAuthenticatedUser(request)
-  if (!user) {
-    return NextResponse.json({ error: authError }, { status: 401 })
+  const { userId, error: authError, status } = await requireUser()
+  if (!userId) {
+    return NextResponse.json({ error: authError }, { status })
   }
 
   const body = await request.json().catch(() => null)
-  const paths = Array.isArray(body?.paths) ? body.paths.filter((path: unknown): path is string => typeof path === 'string') : []
+  const paths = Array.isArray(body?.paths)
+    ? body.paths.filter((path: unknown): path is string => typeof path === 'string')
+    : []
 
   if (!paths.length) {
     return NextResponse.json({ error: 'No image paths provided.' }, { status: 400 })
   }
 
-  const invalidPath = paths.find((path: string) => !path.startsWith(`cars/${user.id}/`))
+  const invalidPath = paths.find((path: string) => !path.startsWith(`cars/${userId}/`))
   if (invalidPath) {
     return NextResponse.json({ error: 'You can only remove your own uploaded images.' }, { status: 403 })
   }
 
-  const { error } = await supabaseAdmin.storage.from(CAR_IMAGE_BUCKET).remove(paths)
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  try {
+    await getR2Client().send(
+      new DeleteObjectsCommand({
+        Bucket: R2_BUCKET,
+        Delete: { Objects: paths.map((Key: string) => ({ Key })) },
+      })
+    )
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to remove images.' }, { status: 400 })
   }
-
-  return NextResponse.json({ success: true })
 }

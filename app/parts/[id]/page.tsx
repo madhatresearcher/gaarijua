@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation'
-import { supabaseServer } from '../../../lib/supabase-server'
-import { PART_DETAIL_FIELDS } from '../../../lib/selects'
+import { getPartBySlugOrId } from '../../../lib/db/queries'
 import PartDetailLayout from '../../../components/PartDetailLayout'
 
 type PartRecord = {
@@ -23,28 +22,7 @@ export const revalidate = 60
 export default async function PartDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const { data: bySlug, error: bySlugError } = await supabaseServer
-    .from('parts')
-    .select(PART_DETAIL_FIELDS)
-    .eq('slug', id)
-    .maybeSingle()
-    .overrideTypes<PartRecord | null, { merge: false }>()
-  if (bySlugError) {
-    console.error('PartDetail by slug query failed:', bySlugError.message)
-  }
-  let part: PartRecord | null = bySlug
-  if (!part) {
-    const { data: byId, error: byIdError } = await supabaseServer
-      .from('parts')
-      .select(PART_DETAIL_FIELDS)
-      .eq('id', id)
-      .maybeSingle()
-      .overrideTypes<PartRecord | null, { merge: false }>()
-    if (byIdError) {
-      console.error('PartDetail by id query failed:', byIdError.message)
-    }
-    part = byId
-  }
+  const part = (await getPartBySlugOrId(id)) as PartRecord | null
 
   if (!part) return notFound()
 

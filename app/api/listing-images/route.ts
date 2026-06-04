@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { DeleteObjectsCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { auth } from '../../../auth'
-import { getR2Client, hasR2Env, r2PublicUrl, R2_BUCKET } from '../../../lib/r2'
+import { getR2Bucket, hasR2Env, r2PublicUrl } from '../../../lib/r2'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +56,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `You can upload up to ${MAX_UPLOAD_FILES} images per listing.` }, { status: 400 })
   }
 
-  const client = getR2Client()
+  const bucket = getR2Bucket()
+  if (!bucket) {
+    return NextResponse.json({ error: 'Image uploads are not configured on this deployment yet.' }, { status: 500 })
+  }
   const uploadedKeys: string[] = []
 
   try {
@@ -72,16 +74,12 @@ export async function POST(request: NextRequest) {
         }
 
         const key = `cars/${userId}/${crypto.randomUUID()}.${extension}`
-        const buffer = Buffer.from(await file.arrayBuffer())
-        await client.send(
-          new PutObjectCommand({
-            Bucket: R2_BUCKET,
-            Key: key,
-            Body: buffer,
-            ContentType: file.type || `image/${extension}`,
-            CacheControl: 'public, max-age=31536000, immutable',
-          })
-        )
+        await bucket.put(key, await file.arrayBuffer(), {
+          httpMetadata: {
+            contentType: file.type || `image/${extension}`,
+            cacheControl: 'public, max-age=31536000, immutable',
+          },
+        })
         uploadedKeys.push(key)
         return { path: key, publicUrl: r2PublicUrl(key) }
       })
@@ -90,14 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ images: uploads })
   } catch (error) {
     if (uploadedKeys.length) {
-      await client
-        .send(
-          new DeleteObjectsCommand({
-            Bucket: R2_BUCKET,
-            Delete: { Objects: uploadedKeys.map((Key) => ({ Key })) },
-          })
-        )
-        .catch(() => undefined)
+      await bucket.delete(uploadedKeys).catch(() => undefined)
     }
     return NextResponse.json(
       { error: (error as Error).message || 'Failed to upload photos.' },
@@ -126,13 +117,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'You can only remove your own uploaded images.' }, { status: 403 })
   }
 
+  const bucket = getR2Bucket()
+  if (!bucket) {
+    return NextResponse.json({ error: 'Image uploads are not configured on this deployment yet.' }, { status: 500 })
+  }
+
   try {
-    await getR2Client().send(
-      new DeleteObjectsCommand({
-        Bucket: R2_BUCKET,
-        Delete: { Objects: paths.map((Key: string) => ({ Key })) },
-      })
-    )
+    await bucket.delete(paths)
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message || 'Failed to remove images.' }, { status: 400 })

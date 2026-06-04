@@ -13,6 +13,12 @@ binding = "ASSETS"
 enabled = true
 invocation_logs = true
 
+# R2 bucket for listing images, accessed via binding (env.CAR_IMAGES) instead
+# of the AWS S3 SDK — the SDK's Node fs/http deps don't run on Workers.
+[[r2_buckets]]
+binding = "CAR_IMAGES"
+bucket_name = "car-images"
+
 # Secrets/vars are NOT stored here. Set them with `wrangler secret put <NAME>`
 # (or in the Cloudflare dashboard) for production:
 #   DATABASE_URL, AUTH_SECRET, AUTH_URL, AUTH_RESEND_KEY, EMAIL_FROM,

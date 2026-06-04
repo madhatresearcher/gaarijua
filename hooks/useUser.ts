@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useMemo } from 'react'
 import { useSession, signOut as nextAuthSignOut } from 'next-auth/react'
 
 export type AppUser = {
@@ -19,15 +20,23 @@ export function useUser(): UseUserState {
   const { data: session, status } = useSession()
   const sessionUser = session?.user
 
-  const user: AppUser | null = sessionUser?.id
-    ? { id: sessionUser.id, email: sessionUser.email ?? null, name: sessionUser.name ?? null }
-    : null
+  const userId = sessionUser?.id ?? null
+  const userEmail = sessionUser?.email ?? null
+  const userName = sessionUser?.name ?? null
 
-  const profile = sessionUser?.name ? { display_name: sessionUser.name } : null
+  const user: AppUser | null = useMemo(
+    () => (userId ? { id: userId, email: userEmail, name: userName } : null),
+    [userId, userEmail, userName]
+  )
 
-  const signOut = async () => {
+  const profile = useMemo(
+    () => (userName ? { display_name: userName } : null),
+    [userName]
+  )
+
+  const signOut = useCallback(async () => {
     await nextAuthSignOut({ callbackUrl: '/auth/sign-in' })
-  }
+  }, [])
 
   return { user, profile, loading: status === 'loading', signOut }
 }

@@ -8,6 +8,11 @@ compatibility_flags = ["nodejs_compat"]
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# Workers logs (tail-able runtime + per-invocation logs).
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Secrets/vars are NOT stored here. Set them with `wrangler secret put <NAME>`
 # (or in the Cloudflare dashboard) for production:
 #   DATABASE_URL, AUTH_SECRET, AUTH_URL, AUTH_RESEND_KEY, EMAIL_FROM,

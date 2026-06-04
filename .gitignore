@@ -15,6 +15,7 @@ public/uploads/
 /.vercel
 node_modules
 OBJECTIVES.md
+LAUNCH_BLOCKERS.md
 .open-next/
 .wrangler/
 .dev.vars

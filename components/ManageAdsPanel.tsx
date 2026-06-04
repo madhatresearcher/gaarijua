@@ -66,6 +66,18 @@ function getSupportedImageExtension(file: File) {
   return null
 }
 
+// Price helpers: keep raw digits in state, show them grouped with thousands
+// separators (e.g. 1500000 -> "1,500,000"). Drops any decimal part — UGX
+// prices are whole numbers.
+function priceDigits(value: string | number | null | undefined) {
+  return (value ?? '').toString().split('.')[0].replace(/\D/g, '')
+}
+
+function formatPrice(value: string | number | null | undefined) {
+  const digits = priceDigits(value)
+  return digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : ''
+}
+
 const BODY_TYPE_OPTIONS = ['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck']
 const INITIAL_FORM: ManageFormShape = {
   title: '',
@@ -451,10 +463,10 @@ export default function ManageAdsPanel() {
                       {form.type === 'rent' ? 'Price / day (UGX)' : 'Sale price (UGX)'}
                     </span>
                     <input
-                      type="number"
-                      value={form.price}
-                      onChange={(event) => handleFormChange('price', event.target.value)}
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
+                      value={formatPrice(form.price)}
+                      onChange={(event) => handleFormChange('price', priceDigits(event.target.value))}
                       className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:outline-none"
                     />
                   </label>
@@ -568,12 +580,13 @@ export default function ManageAdsPanel() {
                     <div className="mt-3 space-y-2">
                       <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Price (UGX)</label>
                       <input
-                        type="number"
-                        value={priceValue ?? ''}
+                        type="text"
+                        inputMode="numeric"
+                        value={formatPrice(priceValue)}
                         onChange={(event) =>
                           setUpdates((prev) => ({
                             ...prev,
-                            [listing.id]: { ...prev[listing.id], price: event.target.value },
+                            [listing.id]: { ...prev[listing.id], price: priceDigits(event.target.value) },
                           }))
                         }
                         className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:outline-none"

@@ -9,6 +9,9 @@ export const dynamic = 'force-dynamic'
 
 const STATUSES = new Set(['active', 'closed', 'draft'])
 const BODY_TYPES = new Set(['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck'])
+const MAX_BATCH_SIZE = 50
+
+type ListingCreateInput = Record<string, unknown>
 
 function slugify(value: string) {
   return value
@@ -18,10 +21,59 @@ function slugify(value: string) {
     .concat('-', Date.now().toString().slice(-4))
 }
 
+function slugifyBatch(value: string, index: number) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .concat('-', Date.now().toString().slice(-4), '-', String(index + 1))
+}
+
 function numOrNull(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null
   const n = Number(value)
   return Number.isNaN(n) ? null : String(n)
+}
+
+function getListingsFromBody(body: unknown): ListingCreateInput[] {
+  if (!body || typeof body !== 'object') return []
+  const record = body as Record<string, unknown>
+  if (Array.isArray(record.listings)) {
+    return record.listings.filter(
+      (listing): listing is ListingCreateInput => Boolean(listing) && typeof listing === 'object'
+    )
+  }
+  return [record]
+}
+
+function getString(value: unknown) {
+  return typeof value === 'string' ? value : ''
+}
+
+function buildInsertValues(input: ListingCreateInput, ownerId: string, index: number, useBatchSlug: boolean) {
+  const title = getString(input.title).trim()
+  const isForRent = input.type === 'rent' || input.is_for_rent === true
+  const status = typeof input.status === 'string' && STATUSES.has(input.status) ? input.status : 'active'
+  const bodyType = typeof input.body_type === 'string' && BODY_TYPES.has(input.body_type) ? input.body_type : null
+  const images = Array.isArray(input.images) ? input.images.filter((x): x is string => typeof x === 'string') : []
+
+  return {
+    title,
+    brand: getString(input.brand).trim() || null,
+    model: getString(input.model).trim() || null,
+    year: input.year ? Number(input.year) || null : null,
+    description: getString(input.description).trim() || null,
+    images,
+    slug: useBatchSlug ? slugifyBatch(title || 'listing', index) : slugify(title || 'listing'),
+    bodyType,
+    location: getString(input.location).trim() || 'Kampala, Uganda',
+    isForRent,
+    pricePerDay: isForRent ? numOrNull(input.price) : null,
+    priceBuy: isForRent ? null : numOrNull(input.price),
+    status,
+    closedAt: status === 'closed' ? new Date() : null,
+    ownerId,
+  }
 }
 
 export async function GET() {
@@ -47,41 +99,43 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null)
-  if (!body || typeof body.title !== 'string' || !body.title.trim()) {
-    return NextResponse.json({ error: 'A title is required.' }, { status: 400 })
+  const requestedListings = getListingsFromBody(body)
+
+  if (requestedListings.length === 0) {
+    return NextResponse.json({ error: 'Add at least one listing.' }, { status: 400 })
+  }
+  if (requestedListings.length > MAX_BATCH_SIZE) {
+    return NextResponse.json({ error: `Create ${MAX_BATCH_SIZE} listings or fewer at a time.` }, { status: 400 })
   }
 
-  const isForRent = body.type === 'rent' || body.is_for_rent === true
-  const status = STATUSES.has(body.status) ? body.status : 'active'
-  const bodyType = BODY_TYPES.has(body.body_type) ? body.body_type : null
-  const images = Array.isArray(body.images) ? body.images.filter((x: unknown) => typeof x === 'string') : []
+  const invalidListingIndex = requestedListings.findIndex(
+    (listing) => typeof listing.title !== 'string' || !listing.title.trim()
+  )
+  if (invalidListingIndex >= 0) {
+    return NextResponse.json({ error: `Listing ${invalidListingIndex + 1}: a title is required.` }, { status: 400 })
+  }
+
+  const values = requestedListings.map((listing, index) =>
+    buildInsertValues(listing, session.user.id, index, requestedListings.length > 1)
+  )
 
   try {
     const inserted = await db
       .insert(cars)
-      .values({
-        title: body.title.trim(),
-        brand: body.brand?.trim() || null,
-        model: body.model?.trim() || null,
-        year: body.year ? Number(body.year) || null : null,
-        description: body.description?.trim() || null,
-        images,
-        slug: slugify(body.title || 'listing'),
-        bodyType,
-        location: body.location?.trim() || 'Kampala, Uganda',
-        isForRent,
-        pricePerDay: isForRent ? numOrNull(body.price) : null,
-        priceBuy: isForRent ? null : numOrNull(body.price),
-        status,
-        closedAt: status === 'closed' ? new Date() : null,
-        ownerId: session.user.id,
-      })
+      .values(values)
       .returning()
 
-    return NextResponse.json({ listing: serializeCar(inserted[0]) }, { status: 201 })
+    const serialized = inserted.map(serializeCar)
+    return NextResponse.json(
+      {
+        listing: serialized[0] ?? null,
+        listings: serialized,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('POST /api/my-listings failed:', (error as Error).message)
-    return NextResponse.json({ error: 'Failed to create listing.' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create listings.' }, { status: 500 })
   }
 }
 

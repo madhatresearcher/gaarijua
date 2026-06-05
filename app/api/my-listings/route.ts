@@ -50,8 +50,15 @@ function getString(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
+function getListingTitle(input: ListingCreateInput) {
+  return (
+    getString(input.title).trim() ||
+    [getString(input.brand).trim(), getString(input.model).trim()].filter(Boolean).join(' ')
+  )
+}
+
 function buildInsertValues(input: ListingCreateInput, ownerId: string, index: number, useBatchSlug: boolean) {
-  const title = getString(input.title).trim()
+  const title = getListingTitle(input)
   const isForRent = input.type === 'rent' || input.is_for_rent === true
   const status = typeof input.status === 'string' && STATUSES.has(input.status) ? input.status : 'active'
   const bodyType = typeof input.body_type === 'string' && BODY_TYPES.has(input.body_type) ? input.body_type : null
@@ -108,11 +115,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Create ${MAX_BATCH_SIZE} listings or fewer at a time.` }, { status: 400 })
   }
 
-  const invalidListingIndex = requestedListings.findIndex(
-    (listing) => typeof listing.title !== 'string' || !listing.title.trim()
-  )
+  const invalidListingIndex = requestedListings.findIndex((listing) => getListingTitle(listing).length < 2)
   if (invalidListingIndex >= 0) {
-    return NextResponse.json({ error: `Listing ${invalidListingIndex + 1}: a title is required.` }, { status: 400 })
+    return NextResponse.json(
+      { error: `Listing ${invalidListingIndex + 1}: brand and model are required.` },
+      { status: 400 }
+    )
   }
 
   const values = requestedListings.map((listing, index) =>

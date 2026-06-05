@@ -8,7 +8,6 @@ type ListingType = 'rent' | 'buy'
 type ListingStatus = 'active' | 'closed' | 'draft'
 
 type ManageFormShape = {
-  title: string
   brand: string
   model: string
   year: string
@@ -60,7 +59,6 @@ const ALLOWED_IMAGE_EXTENSIONS = new Set(Object.values(ALLOWED_IMAGE_MIME))
 
 const BODY_TYPE_OPTIONS = ['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck']
 const INITIAL_FORM: ManageFormShape = {
-  title: '',
   brand: '',
   model: '',
   year: '',
@@ -108,9 +106,12 @@ function formatPrice(value: string | number | null | undefined) {
   return digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : ''
 }
 
+function buildDraftTitle(draft: Pick<ListingDraft, 'brand' | 'model'>) {
+  return [draft.brand.trim(), draft.model.trim()].filter(Boolean).join(' ')
+}
+
 function isDraftFilled(draft: ListingDraft) {
   return (
-    draft.title.trim().length > 0 ||
     draft.brand.trim().length > 0 ||
     draft.model.trim().length > 0 ||
     draft.year.trim().length > 0 ||
@@ -123,7 +124,9 @@ function isDraftFilled(draft: ListingDraft) {
 
 function getDraftValidationError(draft: ListingDraft) {
   if (!isDraftFilled(draft)) return null
-  if (draft.title.trim().length < 2) return 'Title must be at least 2 characters.'
+  if (!draft.brand.trim() || !draft.model.trim()) {
+    return 'Enter both brand and model.'
+  }
 
   if (draft.year.trim()) {
     const year = Number(draft.year)
@@ -320,7 +323,6 @@ export default function ManageAdsPanel() {
         {
           ...source,
           id: nextDraftId(),
-          title: '',
           files: [],
           imagePreviews: [],
         },
@@ -403,12 +405,12 @@ export default function ManageAdsPanel() {
             const uploadedImages = uploadedByDraftId.get(draft.id) || []
             return {
               clientRequestId: draft.id,
-              title: draft.title.trim(),
               brand: draft.brand.trim() || null,
               model: draft.model.trim() || null,
               year: draft.year ? Number(draft.year) : null,
               description: draft.description.trim() || null,
               images: uploadedImages.map((image) => image.publicUrl),
+              title: buildDraftTitle(draft),
               body_type: draft.body_type,
               location: draft.location || 'Kampala, Uganda',
               type: draft.type,
@@ -568,15 +570,12 @@ export default function ManageAdsPanel() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <label className="block">
-                        <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Title</span>
-                        <input
-                          type="text"
-                          value={draft.title}
-                          onChange={(event) => handleDraftChange(draft.id, 'title', event.target.value)}
-                          className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm focus:border-slate-900 focus:outline-none"
-                        />
-                      </label>
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Generated title</p>
+                        <p className="mt-1 min-h-5 text-sm font-semibold text-slate-900">
+                          {buildDraftTitle(draft) || 'Brand and model'}
+                        </p>
+                      </div>
                       <label className="block">
                         <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Type</span>
                         <select
@@ -681,7 +680,7 @@ export default function ManageAdsPanel() {
                           <div key={src} className="group relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                             <img
                               src={src}
-                              alt={`${draft.title || `Listing ${index + 1}`} preview ${previewIndex + 1}`}
+                              alt={`${buildDraftTitle(draft) || `Listing ${index + 1}`} preview ${previewIndex + 1}`}
                               className="h-full w-full object-cover"
                             />
                             <button

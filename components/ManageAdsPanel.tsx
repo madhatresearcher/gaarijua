@@ -37,6 +37,7 @@ type EditableListing = {
   body_type: string | null
   location: string | null
   description: string | null
+  images: string[]
 }
 
 type UploadedImage = {
@@ -155,6 +156,9 @@ export default function ManageAdsPanel() {
   const [updates, setUpdates] = useState<Record<string, Partial<EditableListing> & { price?: string }>>({})
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [listingPhotoUploadId, setListingPhotoUploadId] = useState<string | null>(null)
+  const [deletingListingId, setDeletingListingId] = useState<string | null>(null)
+  const [openListingMenuId, setOpenListingMenuId] = useState<string | null>(null)
 
   const validateSelectedFiles = (files: File[]) => {
     if (files.length > MAX_UPLOAD_FILES) {
@@ -353,7 +357,7 @@ export default function ManageAdsPanel() {
 
   const handleCreateListings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!user) {
+  if (!user) {
       setMessage('Sign in to create ads.')
       return
     }
@@ -485,6 +489,98 @@ export default function ManageAdsPanel() {
       return copy
     })
     void fetchAds()
+  }
+
+  const persistListingImages = async (listingId: string, images: string[]) => {
+    const response = await fetch('/api/my-listings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: listingId, images }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => null)
+      setMessage(typeof body?.error === 'string' ? body.error : 'Failed to update listing photos.')
+      return false
+    }
+
+    void fetchAds()
+    return true
+  }
+
+  const handleListingPhotoSelection = async (
+    listing: EditableListing,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = ''
+    if (!files.length) return
+
+    const validationError = validateSelectedFiles(files)
+    if (validationError) {
+      setMessage(validationError)
+      return
+    }
+    if (listing.images.length + files.length > MAX_UPLOAD_FILES) {
+      setMessage(`A listing can have up to ${MAX_UPLOAD_FILES} photos.`)
+      return
+    }
+
+    setListingPhotoUploadId(listing.id)
+    let uploadedImages: UploadedImage[] = []
+    try {
+      uploadedImages = await uploadFilesToStorage(files)
+      const saved = await persistListingImages(listing.id, [
+        ...listing.images,
+        ...uploadedImages.map((image) => image.publicUrl),
+      ])
+      if (!saved) {
+        await cleanupUploadedFiles(uploadedImages.map((image) => image.path))
+        return
+      }
+      setMessage(`${uploadedImages.length} photo${uploadedImages.length === 1 ? '' : 's'} added.`)
+    } catch (error) {
+      await cleanupUploadedFiles(uploadedImages.map((image) => image.path))
+      setMessage((error as Error).message || 'Failed to add listing photos.')
+    } finally {
+      setListingPhotoUploadId(null)
+    }
+  }
+
+  const handleRemoveListingImage = async (listing: EditableListing, image: string) => {
+    if (!window.confirm('Remove this photo from the listing?')) return
+    const saved = await persistListingImages(
+      listing.id,
+      listing.images.filter((currentImage) => currentImage !== image)
+    )
+    if (saved) setMessage('Photo removed.')
+  }
+
+  const handleDeleteListing = async (listing: EditableListing) => {
+    if (!window.confirm(`Permanently delete ${listing.title}? This cannot be undone.`)) return
+
+    setDeletingListingId(listing.id)
+    try {
+      const response = await fetch('/api/my-listings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: listing.id }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        setMessage(typeof body?.error === 'string' ? body.error : 'Failed to delete listing.')
+        return
+      }
+      setListings((currentListings) => currentListings.filter((currentListing) => currentListing.id !== listing.id))
+      setUpdates((currentUpdates) => {
+        const nextUpdates = { ...currentUpdates }
+        delete nextUpdates[listing.id]
+        return nextUpdates
+      })
+      setMessage('Listing permanently deleted.')
+    } finally {
+      setDeletingListingId(null)
+      setOpenListingMenuId(null)
+    }
   }
 
   if (!user) {
@@ -770,12 +866,75 @@ export default function ManageAdsPanel() {
                 const pending = updates[listing.id] || {}
                 const priceValue = pending.price ?? (listing.is_for_rent ? listing.price_per_day?.toString() : listing.price_buy?.toString())
                 return (
-                  <article key={listing.id} className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-2">
+                  <article key={listing.id} className="relative rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                    <div className="absolute left-3 top-3 z-10">
+                      <button
+                        type="button"
+                        onClick={() => setOpenListingMenuId((currentId) => (currentId === listing.id ? null : listing.id))}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-bold leading-none text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100"
+                        aria-label={`More actions for ${listing.title}`}
+                        aria-expanded={openListingMenuId === listing.id}
+                      >
+                        &#8942;
+                      </button>
+                      {openListingMenuId === listing.id && (
+                        <div className="absolute left-0 top-10 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteListing(listing)}
+                            disabled={deletingListingId === listing.id}
+                            className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingListingId === listing.id ? 'Deleting...' : 'Delete ad'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pl-9">
                       <h3 className="text-lg font-semibold text-slate-900">{listing.title}</h3>
                       <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">{STATUS_LABELS[listing.status]}</span>
                     </div>
                     <p className="text-sm text-slate-500">{listing.brand} - {listing.model} - {listing.body_type}</p>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Photos</p>
+                        <label className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 hover:text-slate-950">
+                          {listingPhotoUploadId === listing.id ? 'Uploading...' : '+ Add photos'}
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif"
+                            onChange={(event) => void handleListingPhotoSelection(listing, event)}
+                            disabled={listingPhotoUploadId === listing.id || deletingListingId === listing.id}
+                            className="sr-only"
+                          />
+                        </label>
+                      </div>
+                      {listing.images.length > 0 ? (
+                        <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                          {listing.images.map((image, imageIndex) => (
+                            <div key={image} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                              <img
+                                src={image}
+                                alt={`${listing.title} photo ${imageIndex + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveListingImage(listing, image)}
+                                disabled={listingPhotoUploadId === listing.id || deletingListingId === listing.id}
+                                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/85 text-xs font-bold text-white opacity-0 transition group-hover:opacity-100 hover:bg-rose-600 disabled:cursor-not-allowed"
+                                aria-label={`Remove photo ${imageIndex + 1}`}
+                              >
+                                x
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 rounded-xl border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500">No photos added yet.</p>
+                      )}
+                    </div>
                     <div className="mt-3 space-y-2">
                       <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Status</label>
                       <select
@@ -855,8 +1014,31 @@ export default function ManageAdsPanel() {
               </div>
             )}
             {closedListings.map((listing) => (
-              <article key={listing.id} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm">
-                <div>
+              <article key={listing.id} className="relative flex items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm">
+                <div className="relative mr-3 self-start">
+                  <button
+                    type="button"
+                    onClick={() => setOpenListingMenuId((currentId) => (currentId === listing.id ? null : listing.id))}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold leading-none text-slate-600 hover:bg-slate-100"
+                    aria-label={`More actions for ${listing.title}`}
+                    aria-expanded={openListingMenuId === listing.id}
+                  >
+                    &#8942;
+                  </button>
+                  {openListingMenuId === listing.id && (
+                    <div className="absolute left-0 top-9 z-10 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteListing(listing)}
+                        disabled={deletingListingId === listing.id}
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingListingId === listing.id ? 'Deleting...' : 'Delete ad'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="mr-auto">
                   <p className="text-sm font-semibold text-slate-900">{listing.title}</p>
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{listing.brand} - {listing.model}</p>
                 </div>

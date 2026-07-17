@@ -44,7 +44,6 @@ export default function HostDashboard({
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [showBatchCreator, setShowBatchCreator] = useState(false)
-  const [initialDraftCount, setInitialDraftCount] = useState(1)
 
   const loadPage = useCallback(async (nextScope: 'open' | 'closed', cursor?: string | null, append = false) => {
     setLoadingPage(true)
@@ -200,15 +199,13 @@ export default function HostDashboard({
             <button type="button" onClick={() => changeScope('open')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${scope === 'open' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Live & drafts</button>
             <button type="button" onClick={() => changeScope('closed')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${scope === 'closed' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Archived</button>
           </div>
-          <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setInitialDraftCount(1); setShowBatchCreator(true) }} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Create one listing</button><button type="button" onClick={() => { setInitialDraftCount(2); setShowBatchCreator(true) }} className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300">Create multiple listings</button></div>
+          <button type="button" onClick={() => setShowBatchCreator(true)} className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300">Create listings</button>
         </div>
 
         {showBatchCreator && (
           <ManageAdsPanel
-            key={initialDraftCount}
             embedded
             initiallyShowCreateForm
-            initialDraftCount={initialDraftCount}
             onClose={() => setShowBatchCreator(false)}
             onListingsCreated={() => {
               setShowBatchCreator(false)

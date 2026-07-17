@@ -4,6 +4,7 @@ import { auth } from '../../../auth'
 import { db } from '../../../lib/db'
 import { cars } from '../../../lib/db/schema'
 import { serializeCar } from '../../../lib/db/serialize'
+import { getHostListingPage, getPageSize } from '../../../lib/host-listings'
 import { getR2Bucket } from '../../../lib/r2'
 
 export const dynamic = 'force-dynamic'
@@ -128,20 +129,19 @@ function buildInsertValues(input: ListingCreateInput, ownerId: string, index: nu
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Sign in to view your listings.' }, { status: 401 })
   }
 
-  const rows = await db
-    .select()
-    .from(cars)
-    .where(eq(cars.ownerId, session.user.id))
-    .orderBy(cars.createdAt)
-
-  const listings = rows.map(serializeCar).sort((a, b) => (a.created_at && b.created_at ? b.created_at.localeCompare(a.created_at) : 0))
-  return NextResponse.json({ listings })
+  const { searchParams } = new URL(request.url)
+  const page = await getHostListingPage(session.user.id, {
+    closed: searchParams.get('status') === 'closed',
+    cursor: searchParams.get('cursor'),
+    pageSize: getPageSize(searchParams.get('limit')),
+  })
+  return NextResponse.json(page)
 }
 
 export async function POST(request: NextRequest) {

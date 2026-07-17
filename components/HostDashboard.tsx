@@ -8,7 +8,7 @@ type ListingStatus = 'active' | 'closed' | 'draft'
 type ListingDetail = HostListingSummary & { description: string | null; images: string[] }
 type ListingPage = { listings: HostListingSummary[]; nextCursor: string | null; total: number }
 
-const MAX_IMAGES = 8
+const MAX_IMAGES = 15
 const STATUS_LABELS: Record<ListingStatus, string> = { active: 'Active', closed: 'Closed', draft: 'Draft' }
 
 function formatPrice(value: number | null) {
@@ -118,8 +118,8 @@ export default function HostDashboard({
       setMessage('Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF images.')
       return
     }
-    if (files.some((file) => file.size > 12 * 1024 * 1024)) {
-      setMessage('Each photo must be 12MB or smaller.')
+    if (files.some((file) => file.size > 15 * 1024 * 1024)) {
+      setMessage('Each photo must be 15MB or smaller.')
       return
     }
     if (detail.images.length + files.length > MAX_IMAGES) {

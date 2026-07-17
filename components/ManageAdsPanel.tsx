@@ -45,8 +45,8 @@ type UploadedImage = {
   publicUrl: string
 }
 
-const MAX_UPLOAD_FILES = 8
-const MAX_FILE_SIZE_BYTES = 12 * 1024 * 1024
+const MAX_UPLOAD_FILES = 15
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024
 const ALLOWED_IMAGE_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
@@ -169,7 +169,7 @@ export default function ManageAdsPanel() {
         return `${file.name}: unsupported format. Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF.`
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        return `${file.name}: exceeds 12MB size limit.`
+        return `${file.name}: exceeds 15MB size limit.`
       }
     }
     return null

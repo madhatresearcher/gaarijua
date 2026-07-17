@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 const STATUSES = new Set(['active', 'closed', 'draft'])
 const BODY_TYPES = new Set(['SUV', 'estate', 'Sedan', 'coupe', 'pickup truck'])
 const MAX_BATCH_SIZE = 50
-const MAX_IMAGES_PER_LISTING = 8
+const MAX_IMAGES_PER_LISTING = 15
 
 type ListingCreateInput = Record<string, unknown>
 

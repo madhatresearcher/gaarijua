@@ -1,27 +1,23 @@
-import { and, count, desc, eq, lt, ne, or } from 'drizzle-orm'
+import { and, count, desc, eq, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from './db'
 import { cars } from './db/schema'
-import { serializeCar, type SerializedCar } from './db/serialize'
+import { serializeCar } from './db/serialize'
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 24
 
-export type HostListingSummary = Pick<
-  SerializedCar,
-  | 'id'
-  | 'title'
-  | 'brand'
-  | 'model'
-  | 'status'
-  | 'is_for_rent'
-  | 'price_per_day'
-  | 'price_buy'
-  | 'body_type'
-  | 'location'
-  | 'created_at'
-  | 'description'
-  | 'images'
-> & {
+export type HostListingSummary = {
+  id: string
+  title: string
+  brand: string | null
+  model: string | null
+  status: string
+  is_for_rent: boolean
+  price_per_day: number | null
+  price_buy: number | null
+  body_type: string | null
+  location: string | null
+  created_at: string | null
   cover_image: string | null
   image_count: number
 }
@@ -33,6 +29,38 @@ export type HostListingPage = {
 }
 
 type Cursor = { createdAt: string; id: string }
+
+type HostListingRow = {
+  id: string
+  title: string
+  brand: string | null
+  model: string | null
+  status: string
+  isForRent: boolean | null
+  pricePerDay: string | number | null
+  priceBuy: string | number | null
+  bodyType: string | null
+  location: string | null
+  createdAt: Date
+  coverImage: string | null
+  imageCount: number | string
+}
+
+const hostListingFields = {
+  id: cars.id,
+  title: cars.title,
+  brand: cars.brand,
+  model: cars.model,
+  status: cars.status,
+  isForRent: cars.isForRent,
+  pricePerDay: cars.pricePerDay,
+  priceBuy: cars.priceBuy,
+  bodyType: cars.bodyType,
+  location: cars.location,
+  createdAt: cars.createdAt,
+  coverImage: sql<string | null>`${cars.images}[1]`,
+  imageCount: sql<number>`coalesce(cardinality(${cars.images}), 0)`,
+}
 
 function decodeCursor(cursor: string | null | undefined): Cursor | null {
   if (!cursor) return null
@@ -56,23 +84,21 @@ function encodeCursor(listing: HostListingSummary) {
   return Buffer.from(JSON.stringify({ createdAt: listing.created_at, id: listing.id }), 'utf8').toString('base64url')
 }
 
-function toSummary(listing: SerializedCar): HostListingSummary {
+function toSummary(listing: HostListingRow): HostListingSummary {
   return {
     id: listing.id,
     title: listing.title,
     brand: listing.brand,
     model: listing.model,
     status: listing.status,
-    is_for_rent: listing.is_for_rent,
-    price_per_day: listing.price_per_day,
-    price_buy: listing.price_buy,
-    body_type: listing.body_type,
+    is_for_rent: listing.isForRent ?? false,
+    price_per_day: listing.pricePerDay === null ? null : Number(listing.pricePerDay),
+    price_buy: listing.priceBuy === null ? null : Number(listing.priceBuy),
+    body_type: listing.bodyType,
     location: listing.location,
-    created_at: listing.created_at,
-    description: listing.description,
-    images: listing.images,
-    cover_image: listing.images[0] ?? null,
-    image_count: listing.images.length,
+    created_at: listing.createdAt.toISOString(),
+    cover_image: listing.coverImage,
+    image_count: Number(listing.imageCount),
   }
 }
 
@@ -102,7 +128,7 @@ export async function getHostListingPage(
 
   const [rows, countRows] = await Promise.all([
     db
-      .select()
+      .select(hostListingFields)
       .from(cars)
       .where(where)
       .orderBy(desc(cars.createdAt), desc(cars.id))
@@ -110,7 +136,7 @@ export async function getHostListingPage(
     db.select({ total: count() }).from(cars).where(baseWhere),
   ])
 
-  const summaries = rows.slice(0, pageSize).map((row) => toSummary(serializeCar(row)))
+  const summaries = rows.slice(0, pageSize).map((row) => toSummary(row))
   return {
     listings: summaries,
     nextCursor: rows.length > pageSize ? encodeCursor(summaries[summaries.length - 1]) : null,

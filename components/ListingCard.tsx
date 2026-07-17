@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatCurrency, detectCurrencyFromRecord } from '../lib/currency'
 import { isClosedListingForDisplay } from '../lib/listing-visibility'
+import { listingImageUrl } from '../lib/listing-image-url'
 
 interface ListingCardProps {
   item: {
@@ -25,7 +26,8 @@ interface ListingCardProps {
 
 export default function ListingCard({ item }: ListingCardProps) {
   const href = `/cars/${item.slug || item.id}`
-  const image = (item.images && item.images[0]) || item.thumbnail || '/placeholder-car.jpg'
+  const sourceImage = (item.images && item.images[0]) || item.thumbnail
+  const image = listingImageUrl(sourceImage, 'card') || '/placeholder-car.jpg'
 
   const currency = detectCurrencyFromRecord(item) || 'UGX'
   const pricePerDay = item.price_per_day ?? item.pricePerDay
@@ -45,6 +47,8 @@ export default function ListingCard({ item }: ListingCardProps) {
           <img
             src={image}
             alt={item.title || 'Listing'}
+            width={640}
+            height={480}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
             decoding="async"

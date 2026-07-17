@@ -6,6 +6,7 @@ import SimilarCard from './SimilarCard'
 import { useCompareTray } from './CompareTrayProvider'
 import { detectCurrencyFromRecord, formatCurrency } from '../lib/currency'
 import type { CompareItem } from './CompareTray'
+import { listingImageUrl } from '../lib/listing-image-url'
 
 type CarRecord = {
   id?: string
@@ -49,6 +50,7 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
   const [activeImage, setActiveImage] = useState(0)
   const [lightbox, setLightbox] = useState(false)
   const galleryImages = car.images && car.images.length > 0 ? car.images : ['/placeholder-car.jpg']
+  const activeImageSource = listingImageUrl(galleryImages[activeImage], 'detail') || galleryImages[activeImage]
   const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
 
@@ -116,8 +118,10 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
             <div className="relative rounded-3xl bg-slate-900/5 p-6 shadow-lg">
               <div className="relative overflow-hidden rounded-2xl bg-slate-100">
                 <img
-                  src={galleryImages[activeImage]}
+                  src={activeImageSource}
                   alt={car.title}
+                  width={1440}
+                  height={1080}
                   className="h-[420px] w-full object-cover transition duration-200"
                 />
                 <button
@@ -152,7 +156,7 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
                       index === activeImage ? 'border-slate-900 shadow-lg' : 'border-transparent'
                     } overflow-hidden bg-white`}
                   >
-                    <img src={src} alt={`Thumbnail ${index + 1}`} className="h-full w-full object-cover" />
+                    <img src={listingImageUrl(src, 'thumb') || src} alt={`Thumbnail ${index + 1}`} width={256} height={256} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -168,8 +172,10 @@ export default function CarDetailLayout({ car, similarRentals, recommendedSales 
                     Close
                   </button>
                   <img
-                    src={galleryImages[activeImage]}
+                    src={activeImageSource}
                     alt={car.title}
+                    width={1440}
+                    height={1080}
                     className="h-[70vh] w-full object-contain"
                   />
                 </div>
@@ -393,7 +399,7 @@ function normalizeListing(car: CarRecord): CompareItem {
     title,
     shortTitle: title.length > 15 ? `${title.slice(0, 15)}…` : title,
     slug: car.slug || car.id || identifier,
-    thumb: (car.images && car.images[0]) || '/placeholder-car.jpg',
+    thumb: listingImageUrl(car.images && car.images[0], 'thumb') || '/placeholder-car.jpg',
     price: Number(car.price_per_day ?? car.pricePerDay ?? 0),
   }
 }

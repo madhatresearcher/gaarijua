@@ -1,16 +1,16 @@
 import CarsExplorer from '../../components/CarsExplorer'
-import { getCarsForListing } from '../../lib/db/queries'
+import { getCarListingPage } from '../../lib/db/queries'
 import { isListingPubliclyVisible } from '../../lib/listing-visibility'
 
 export const revalidate = 60
 
 export default async function CarsPage() {
-  const data = await getCarsForListing({ mode: 'rent' }, 64)
-  const initialCars = data.filter((car) => isListingPubliclyVisible(car)).slice(0, 32)
+  const page = await getCarListingPage({ mode: 'rent' }, { limit: 24 })
+  const initialCars = page.cars.filter((car) => isListingPubliclyVisible(car))
 
   return (
     <div className="bg-white">
-      <CarsExplorer initialCars={initialCars} />
+      <CarsExplorer initialCars={initialCars} initialNextCursor={page.nextCursor} />
     </div>
   )
 }

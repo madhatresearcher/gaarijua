@@ -16,40 +16,44 @@ const defaultFilters: FilterFields = {
 
 type CarsExplorerProps = {
   initialCars: any[]
+  initialNextCursor: string | null
 }
 
-export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
+export default function CarsExplorer({ initialCars, initialNextCursor }: CarsExplorerProps) {
   const [mode, setMode] = useState<'rent' | 'buy'>('rent')
   const [workingFilters, setWorkingFilters] = useState<FilterFields>(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState<FilterFields>(defaultFilters)
   const [cars, setCars] = useState(() => initialCars.filter((car) => isListingPubliclyVisible(car)))
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor)
   const [loading, setLoading] = useState(false)
   const shouldSkipInitialFetch = useRef(initialCars.length > 0)
 
-  const fetchCars = useCallback(async () => {
+  const fetchCars = useCallback(async (cursor?: string | null, append = false) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ mode })
+      const params = new URLSearchParams({ mode, limit: '24' })
       if (appliedFilters.location) params.set('location', appliedFilters.location)
       if (appliedFilters.make) params.set('make', appliedFilters.make)
       if (appliedFilters.model) params.set('model', appliedFilters.model)
       if (appliedFilters.year) params.set('year', appliedFilters.year)
       if (mode === 'rent' && appliedFilters.minPrice) params.set('minPrice', appliedFilters.minPrice)
       if (mode === 'rent' && appliedFilters.maxPrice) params.set('maxPrice', appliedFilters.maxPrice)
+      if (cursor) params.set('cursor', cursor)
 
-      const response = await fetch(`/api/cars?${params.toString()}`)
+      const response = await fetch('/api/cars?' + params.toString())
       if (!response.ok) {
         console.error('CarsExplorer fetch failed:', response.status)
-        setCars([])
+        if (!append) setCars([])
         return
       }
       const body = await response.json()
       const data = Array.isArray(body?.cars) ? body.cars : []
-      const nextCars = data.filter((car: any) => isListingPubliclyVisible(car)).slice(0, 48)
-      setCars(nextCars)
+      const visibleCars = data.filter((car: any) => isListingPubliclyVisible(car))
+      setCars((current) => (append ? [...current, ...visibleCars] : visibleCars))
+      setNextCursor(typeof body?.nextCursor === 'string' ? body.nextCursor : null)
     } catch (error) {
       console.error('CarsExplorer fetch failed:', (error as Error).message)
-      setCars([])
+      if (!append) setCars([])
     } finally {
       setLoading(false)
     }
@@ -63,7 +67,7 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
         return
       }
     }
-    void fetchCars()
+    void fetchCars(null, false)
   }, [appliedFilters, fetchCars, mode])
 
   const handleApplyFilters = () => {
@@ -108,6 +112,18 @@ export default function CarsExplorer({ initialCars }: CarsExplorerProps) {
           </div>
           {!loading && cars.length === 0 && (
             <p className="text-sm text-slate-500">No cars matched your filters yet.</p>
+          )}
+          {nextCursor && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => void fetchCars(nextCursor, true)}
+                disabled={loading}
+                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {loading ? 'Loading...' : 'Load more cars'}
+              </button>
+            </div>
           )}
         </div>
       </div>

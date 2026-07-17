@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { formatCurrency, detectCurrencyFromRecord } from '../lib/currency'
+import { listingImageUrl } from '../lib/listing-image-url'
 
 interface HeroCardProps {
   item: {
@@ -29,7 +30,10 @@ export default function HeroCard({ item, tag, tagColor = 'amber', type = 'car' }
     ? `/cars/${item.slug || item.id}`
     : `/parts/${item.slug || item.id}`
 
-  const image = (item.images && item.images[0]) || item.thumbnail || (type === 'car' ? '/placeholder-car.jpg' : '/placeholder-part.jpg')
+  const sourceImage = (item.images && item.images[0]) || item.thumbnail
+  const image = type === 'car'
+    ? listingImageUrl(sourceImage, 'card') || '/placeholder-car.jpg'
+    : sourceImage || '/placeholder-part.jpg'
 
   const currency = detectCurrencyFromRecord(item) || 'UGX'
   const pricePerDay = item.price_per_day ?? item.pricePerDay
@@ -66,6 +70,8 @@ export default function HeroCard({ item, tag, tagColor = 'amber', type = 'car' }
           <img
             src={image}
             alt={item.title || 'Listing'}
+            width={640}
+            height={480}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             loading="lazy"
             decoding="async"

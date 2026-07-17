@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { formatCurrency, detectCurrencyFromRecord } from '../lib/currency'
+import { listingImageUrl } from '../lib/listing-image-url'
 
 type CarRecord = {
   id?: string
@@ -32,13 +33,14 @@ export default function SimilarCard({ listing, onCompare }: SimilarCardProps) {
     : salePrice
     ? formatCurrency(salePrice, currency)
     : 'Price on request'
-  const thumbnail = listing.images && listing.images.length > 0 ? listing.images[0] : '/placeholder-car.jpg'
+  const sourceImage = listing.images && listing.images.length > 0 ? listing.images[0] : null
+  const thumbnail = listingImageUrl(sourceImage, 'card') || '/placeholder-car.jpg'
   const rating = listing.rating ?? 4.6
 
   return (
     <div className="min-w-[260px] max-w-[260px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="relative h-36 overflow-hidden rounded-2xl bg-slate-100">
-        <img src={thumbnail} alt={listing.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        <img src={thumbnail} alt={listing.title} width={640} height={480} className="h-full w-full object-cover" loading="lazy" decoding="async" />
         <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow">
           <svg className="h-3 w-3 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10 1.5l2.472 5.008 5.528.805-3.99 3.89.943 5.493L10 15.85l-4.953 2.846.943-5.493-3.99-3.89 5.528-.805L10 1.5z" />

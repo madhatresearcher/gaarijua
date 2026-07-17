@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCarsForListing, type CarFilters } from '../../../lib/db/queries'
+import { getCarListingPage, type CarFilters } from '../../../lib/db/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,8 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const cars = await getCarsForListing(filters, 96)
-    return NextResponse.json({ cars })
+    const requestedLimit = Number(sp.get('limit'))
+    const page = await getCarListingPage(filters, {
+      limit: Number.isInteger(requestedLimit) ? requestedLimit : 24,
+      cursor: sp.get('cursor'),
+    })
+    return NextResponse.json(page)
   } catch (error) {
     console.error('GET /api/cars failed:', (error as Error).message)
     return NextResponse.json({ error: 'Failed to load cars.', cars: [] }, { status: 500 })

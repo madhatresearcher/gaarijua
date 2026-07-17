@@ -1,9 +1,65 @@
-import { and, asc, desc, eq, gt, gte, ilike, inArray, lte, ne, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, or, sql } from 'drizzle-orm'
 import { db, hasDatabaseEnv } from './index'
 import { cars, parts, users } from './schema'
 import { serializeCar, serializePart } from './serialize'
 
 const PUBLIC_STATUSES = ['active', 'closed'] as const
+
+
+type CarCardRow = {
+  id: string
+  slug: string | null
+  title: string
+  brand: string | null
+  model: string | null
+  year: number | null
+  isForRent: boolean | null
+  seller: string | null
+  promoted: boolean | null
+  promotedExpires: Date | null
+  viewsCount: number | null
+  closedAt: Date | null
+  bodyType: string | null
+  pricePerDay: string | null
+  priceBuy: string | null
+  location: string | null
+  mileage: number | null
+  status: string
+  ownerId: string | null
+  createdAt: Date
+  coverImage: string | null
+}
+
+const carCardFields = {
+  id: cars.id,
+  slug: cars.slug,
+  title: cars.title,
+  brand: cars.brand,
+  model: cars.model,
+  year: cars.year,
+  isForRent: cars.isForRent,
+  seller: cars.seller,
+  promoted: cars.promoted,
+  promotedExpires: cars.promotedExpires,
+  viewsCount: cars.viewsCount,
+  closedAt: cars.closedAt,
+  bodyType: cars.bodyType,
+  pricePerDay: cars.pricePerDay,
+  priceBuy: cars.priceBuy,
+  location: cars.location,
+  mileage: cars.mileage,
+  status: cars.status,
+  ownerId: cars.ownerId,
+  createdAt: cars.createdAt,
+  coverImage: sql<string | null>`${cars.images}[1]`,
+}
+
+function serializeCarCard(row: CarCardRow) {
+  return serializeCar({
+    ...row,
+    images: row.coverImage ? [row.coverImage] : [],
+  })
+}
 
 /* --------------------------------- Cars ---------------------------------- */
 
@@ -18,17 +74,41 @@ export type CarFilters = {
   search?: string
 }
 
-export async function getCarsForListing(filters: CarFilters = {}, limit = 96) {
-  if (!hasDatabaseEnv()) return []
+type CarListingCursor = { createdAt: string; id: string }
 
+function decodeCarListingCursor(cursor: string | null | undefined): CarListingCursor | null {
+  if (!cursor) return null
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    if (typeof parsed?.createdAt !== 'string' || Number.isNaN(Date.parse(parsed.createdAt)) || typeof parsed?.id !== 'string') {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function encodeCarListingCursor(row: CarCardRow) {
+  return Buffer.from(JSON.stringify({ createdAt: row.createdAt.toISOString(), id: row.id }), 'utf8').toString('base64url')
+}
+
+export async function getCarListingPage(
+  filters: CarFilters = {},
+  options: { limit?: number; cursor?: string | null } = {}
+) {
+  if (!hasDatabaseEnv()) return { cars: [], nextCursor: null }
+
+  const limit = Math.min(Math.max(options.limit ?? 24, 1), 24)
+  const cursor = decodeCarListingCursor(options.cursor)
   const conditions = [inArray(cars.status, PUBLIC_STATUSES as unknown as string[])]
 
   if (filters.mode) {
     conditions.push(eq(cars.isForRent, filters.mode === 'rent'))
   }
-  if (filters.location) conditions.push(ilike(cars.location, `%${filters.location}%`))
-  if (filters.make) conditions.push(ilike(cars.brand, `%${filters.make}%`))
-  if (filters.model) conditions.push(ilike(cars.model, `%${filters.model}%`))
+  if (filters.location) conditions.push(ilike(cars.location, '%' + filters.location + '%'))
+  if (filters.make) conditions.push(ilike(cars.brand, '%' + filters.make + '%'))
+  if (filters.model) conditions.push(ilike(cars.model, '%' + filters.model + '%'))
   if (filters.year && !Number.isNaN(Number(filters.year))) {
     conditions.push(eq(cars.year, Number(filters.year)))
   }
@@ -39,25 +119,42 @@ export async function getCarsForListing(filters: CarFilters = {}, limit = 96) {
     conditions.push(lte(cars.pricePerDay, String(Number(filters.maxPrice))))
   }
   if (filters.search && filters.search.trim()) {
-    const s = `%${filters.search.trim()}%`
-    const term = or(ilike(cars.title, s), ilike(cars.location, s))
+    const search = '%' + filters.search.trim() + '%'
+    const term = or(ilike(cars.title, search), ilike(cars.location, search))
     if (term) conditions.push(term)
+  }
+  if (cursor) {
+    conditions.push(
+      or(
+        lt(cars.createdAt, new Date(cursor.createdAt)),
+        and(eq(cars.createdAt, new Date(cursor.createdAt)), lt(cars.id, cursor.id))
+      )!
+    )
   }
 
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(and(...conditions))
-    .orderBy(desc(cars.createdAt))
-    .limit(limit)
+    .orderBy(desc(cars.createdAt), desc(cars.id))
+    .limit(limit + 1)
 
-  return rows.map(serializeCar)
+  const pageRows = rows.slice(0, limit)
+  return {
+    cars: pageRows.map(serializeCarCard),
+    nextCursor: rows.length > limit && pageRows.length ? encodeCarListingCursor(pageRows[pageRows.length - 1]) : null,
+  }
+}
+
+export async function getCarsForListing(filters: CarFilters = {}, limit = 24) {
+  const page = await getCarListingPage(filters, { limit })
+  return page.cars
 }
 
 export async function getPromotedCars(limit = 24) {
   if (!hasDatabaseEnv()) return []
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(
       and(
@@ -68,14 +165,14 @@ export async function getPromotedCars(limit = 24) {
     )
     .orderBy(asc(cars.promotedExpires))
     .limit(limit)
-  return rows.map(serializeCar)
+  return rows.map(serializeCarCard)
 }
 
 export async function getTrendingCars(limit = 24) {
   if (!hasDatabaseEnv()) return []
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(
       and(
@@ -86,18 +183,18 @@ export async function getTrendingCars(limit = 24) {
     )
     .orderBy(desc(cars.viewsCount))
     .limit(limit)
-  return rows.map(serializeCar)
+  return rows.map(serializeCarCard)
 }
 
 export async function getLatestCars(limit = 32) {
   if (!hasDatabaseEnv()) return []
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(inArray(cars.status, PUBLIC_STATUSES as unknown as string[]))
     .orderBy(desc(cars.createdAt))
     .limit(limit)
-  return rows.map(serializeCar)
+  return rows.map(serializeCarCard)
 }
 
 export async function getCarBySlugOrId(idOrSlug: string) {
@@ -146,12 +243,12 @@ export async function getSimilarRentals(carId: string | undefined, slug: string 
     conditions.push(lte(cars.pricePerDay, String(pricePerDay * 1.4)))
   }
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(and(...conditions))
     .orderBy(desc(cars.createdAt))
     .limit(limit)
-  return rows.map(serializeCar)
+  return rows.map(serializeCarCard)
 }
 
 export async function getRecommendedSales(carId: string | undefined, slug: string | null, limit = 24) {
@@ -163,12 +260,12 @@ export async function getRecommendedSales(carId: string | undefined, slug: strin
   if (carId) conditions.push(ne(cars.id, carId))
   if (slug) conditions.push(ne(cars.slug, slug))
   const rows = await db
-    .select()
+    .select(carCardFields)
     .from(cars)
     .where(and(...conditions))
     .orderBy(desc(cars.createdAt))
     .limit(limit)
-  return rows.map(serializeCar)
+  return rows.map(serializeCarCard)
 }
 
 export async function getCarsByOwner(ownerId: string) {

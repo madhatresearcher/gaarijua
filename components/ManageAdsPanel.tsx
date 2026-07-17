@@ -143,12 +143,26 @@ function getDraftValidationError(draft: ListingDraft) {
   return null
 }
 
-export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { initiallyShowCreateForm?: boolean }) {
+export default function ManageAdsPanel({
+  initiallyShowCreateForm = false,
+  initialDraftCount = 1,
+  embedded = false,
+  onClose,
+  onListingsCreated,
+}: {
+  initiallyShowCreateForm?: boolean
+  initialDraftCount?: number
+  embedded?: boolean
+  onClose?: () => void
+  onListingsCreated?: () => void
+}) {
   const { user } = useUser()
-  const draftSequenceRef = useRef(2)
+  const draftSequenceRef = useRef(initialDraftCount + 1)
   const previewUrlsRef = useRef<Map<string, string[]>>(new Map())
 
-  const [drafts, setDrafts] = useState<ListingDraft[]>(() => [createEmptyDraft('draft-1')])
+  const [drafts, setDrafts] = useState<ListingDraft[]>(() =>
+    Array.from({ length: Math.max(1, initialDraftCount) }, (_, index) => createEmptyDraft(`draft-${index + 1}`))
+  )
   const [listings, setListings] = useState<EditableListing[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -229,8 +243,8 @@ export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { in
   }, [user])
 
   useEffect(() => {
-    void fetchAds()
-  }, [fetchAds])
+    if (!embedded) void fetchAds()
+  }, [embedded, fetchAds])
 
   useEffect(() => {
     if (!message) return
@@ -434,7 +448,8 @@ export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { in
 
       setMessage(`Created ${filledDraftEntries.length} listing${filledDraftEntries.length === 1 ? '' : 's'} successfully!`)
       resetDrafts()
-      void fetchAds()
+      if (embedded) onListingsCreated?.()
+      else void fetchAds()
     } catch (error) {
       await cleanupUploadedFiles(uploadedPaths)
       setMessage((error as Error).message || 'Failed to create listings.')
@@ -585,7 +600,7 @@ export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { in
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className={embedded ? '' : 'min-h-screen bg-slate-50'}>
         <div className="max-w-3xl mx-auto px-4 py-20 text-center">
           <p className="text-lg font-semibold text-slate-700">Sign in to manage your ads.</p>
           <p className="text-sm text-slate-500 mt-2">
@@ -600,30 +615,30 @@ export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { in
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-6xl mx-auto px-4 py-12 space-y-10">
-        <section className="rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-lg">
+    <div className={embedded ? '' : 'min-h-screen bg-slate-50'}>
+      <div className={embedded ? '' : 'max-w-6xl mx-auto px-4 py-12 space-y-10'}>
+        <section className={embedded ? 'rounded-3xl border border-slate-200 bg-white p-6 shadow-sm' : 'rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-lg'}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-amber-200/80">Ad Control</p>
-              <h1 className="text-3xl font-semibold">Host dashboard</h1>
-              <p className="mt-1 max-w-3xl text-sm text-amber-100/80">
-                Create, refresh, and monitor your live inventory without leaving this corner of Gaarijua.
+              <p className={embedded ? 'text-xs uppercase tracking-[0.4em] text-slate-500' : 'text-xs uppercase tracking-[0.4em] text-amber-200/80'}>{embedded ? 'Create ads' : 'Ad Control'}</p>
+              <h1 className={embedded ? 'text-2xl font-semibold text-slate-900' : 'text-3xl font-semibold'}>{embedded ? 'Batch listing entry' : 'Host dashboard'}</h1>
+              <p className={embedded ? 'mt-1 max-w-3xl text-sm text-slate-500' : 'mt-1 max-w-3xl text-sm text-amber-100/80'}>
+                {embedded ? 'Add one vehicle or use + Add listing to create a batch, then submit them together.' : 'Create, refresh, and monitor your live inventory without leaving this corner of Gaarijua.'}
               </p>
-              <p className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-100/70">
+              {!embedded && <p className="mt-2 text-xs uppercase tracking-[0.3em] text-amber-100/70">
                 Owner ID: {user.id.slice(0, 8)}...
-              </p>
+              </p>}
             </div>
             <div className="flex items-center gap-3">
-              <div className="rounded-full border border-amber-200/40 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.4em] text-amber-100">
+              {!embedded && <div className="rounded-full border border-amber-200/40 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.4em] text-amber-100">
                 {activeListings.length} live ads
-              </div>
+              </div>}
               <button
                 type="button"
-                onClick={() => setShowCreateForm((prev) => !prev)}
-                className="rounded-full bg-amber-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition hover:bg-amber-300"
+                onClick={() => onClose ? onClose() : setShowCreateForm((prev) => !prev)}
+                className={embedded ? 'rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50' : 'rounded-full bg-amber-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-900 transition hover:bg-amber-300'}
               >
-                {showCreateForm ? 'Close form' : 'Create ads'}
+                {embedded ? 'Close' : showCreateForm ? 'Close form' : 'Create ads'}
               </button>
             </div>
           </div>
@@ -845,7 +860,7 @@ export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { in
           )}
         </section>
 
-        <section className="space-y-6">
+        <section className={embedded ? 'hidden' : 'space-y-6'}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Active ads</p>

@@ -688,21 +688,6 @@ export default function ManageAdsPanel({
                   </p>
                 </div>
 
-                {uploadProgress && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4" role="status" aria-live="polite">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-800">
-                      <span>{uploadingImages ? 'Uploading photos' : 'Photos uploaded - creating listings'}</span>
-                      <span>{uploadProgressPercent}%</span>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Listing {uploadProgress.currentListing} of {uploadProgress.totalListings} - {uploadProgress.currentPhotoCount} photos in this listing - {uploadProgress.totalPhotos} photos total
-                    </p>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100" aria-hidden="true">
-                      <div className="h-full rounded-full bg-amber-500 transition-[width] duration-200" style={{ width: uploadProgressPercent.toString() + '%' }} />
-                    </div>
-                  </div>
-                )}
-
                 {drafts.map((draft, index) => (
                   <div key={draft.id} className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -903,6 +888,20 @@ export default function ManageAdsPanel({
                     {uploadingImages ? 'Uploading photos...' : saving ? 'Saving...' : 'Create listings'}
                   </button>
                 </div>
+                {uploadProgress && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4" role="status" aria-live="polite">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-800">
+                      <span>{uploadingImages ? 'Uploading photos' : 'Photos uploaded - creating listings'}</span>
+                      <span>{uploadProgressPercent}%</span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Listing {uploadProgress.currentListing} of {uploadProgress.totalListings} - {uploadProgress.currentPhotoCount} photos in this listing - {uploadProgress.totalPhotos} photos total
+                    </p>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100" aria-hidden="true">
+                      <div className="h-full rounded-full bg-amber-500 transition-[width] duration-200" style={{ width: uploadProgressPercent.toString() + '%' }} />
+                    </div>
+                  </div>
+                )}
               </form>
             </div>
           )}

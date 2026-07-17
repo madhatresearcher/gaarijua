@@ -45,6 +45,15 @@ type UploadedImage = {
   publicUrl: string
 }
 
+type UploadProgress = {
+  uploadedBytes: number
+  totalBytes: number
+  currentListing: number
+  totalListings: number
+  currentPhotoCount: number
+  totalPhotos: number
+}
+
 const MAX_UPLOAD_FILES = 15
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024
 const ALLOWED_IMAGE_MIME: Record<string, string> = {
@@ -170,9 +179,13 @@ export default function ManageAdsPanel({
   const [updates, setUpdates] = useState<Record<string, Partial<EditableListing> & { price?: string }>>({})
   const [showCreateForm, setShowCreateForm] = useState(initiallyShowCreateForm)
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
   const [listingPhotoUploadId, setListingPhotoUploadId] = useState<string | null>(null)
   const [deletingListingId, setDeletingListingId] = useState<string | null>(null)
   const [openListingMenuId, setOpenListingMenuId] = useState<string | null>(null)
+  const uploadProgressPercent = uploadProgress
+    ? Math.min(100, Math.round((uploadProgress.uploadedBytes / uploadProgress.totalBytes) * 100))
+    : 0
 
   const validateSelectedFiles = (files: File[]) => {
     if (files.length > MAX_UPLOAD_FILES) {
@@ -207,23 +220,33 @@ export default function ManageAdsPanel({
     }
   }
 
-  const uploadFilesToStorage = async (files: File[]): Promise<UploadedImage[]> => {
-    if (!files.length) return []
+  const uploadFilesToStorage = (
+    files: File[],
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<UploadedImage[]> => {
+    if (!files.length) return Promise.resolve([])
 
     const formData = new FormData()
     files.forEach((file) => formData.append('files', file))
 
-    const response = await fetch('/api/listing-images', {
-      method: 'POST',
-      body: formData,
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest()
+      request.open('POST', '/api/listing-images')
+      request.responseType = 'json'
+      request.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded, event.total)
+      })
+      request.addEventListener('error', () => reject(new Error('Failed to upload photos.')))
+      request.addEventListener('load', () => {
+        const body = request.response as { images?: UploadedImage[]; error?: string } | null
+        if (request.status < 200 || request.status >= 300) {
+          reject(new Error(typeof body?.error === 'string' ? body.error : 'Failed to upload photos.'))
+          return
+        }
+        resolve(Array.isArray(body?.images) ? body.images : [])
+      })
+      request.send(formData)
     })
-
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-      throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to upload photos.')
-    }
-
-    return Array.isArray(body?.images) ? body.images : []
   }
 
   const fetchAds = useCallback(async () => {
@@ -405,12 +428,52 @@ export default function ManageAdsPanel({
 
     try {
       const draftsWithImages = filledDraftEntries.filter(({ draft }) => draft.files.length > 0)
-      if (draftsWithImages.length) setUploadingImages(true)
+      const totalUploadBytes = draftsWithImages.reduce(
+        (total, { draft }) => total + draft.files.reduce((fileTotal, file) => fileTotal + file.size, 0),
+        0
+      )
+      const totalPhotos = draftsWithImages.reduce((total, { draft }) => total + draft.files.length, 0)
+      let uploadedBytes = 0
 
-      for (const { draft } of draftsWithImages) {
-        const uploadedImages = await uploadFilesToStorage(draft.files)
+      if (draftsWithImages.length) {
+        setUploadingImages(true)
+        setUploadProgress({
+          uploadedBytes: 0,
+          totalBytes: Math.max(totalUploadBytes, 1),
+          currentListing: draftsWithImages[0].index + 1,
+          totalListings: filledDraftEntries.length,
+          currentPhotoCount: draftsWithImages[0].draft.files.length,
+          totalPhotos,
+        })
+      }
+
+      for (const { draft, index } of draftsWithImages) {
+        const listingBytes = draft.files.reduce((total, file) => total + file.size, 0)
+        setUploadProgress({
+          uploadedBytes,
+          totalBytes: Math.max(totalUploadBytes, 1),
+          currentListing: index + 1,
+          totalListings: filledDraftEntries.length,
+          currentPhotoCount: draft.files.length,
+          totalPhotos,
+        })
+        const uploadedImages = await uploadFilesToStorage(draft.files, (loaded) => {
+          setUploadProgress({
+            uploadedBytes: Math.min(totalUploadBytes, uploadedBytes + Math.min(loaded, listingBytes)),
+            totalBytes: Math.max(totalUploadBytes, 1),
+            currentListing: index + 1,
+            totalListings: filledDraftEntries.length,
+            currentPhotoCount: draft.files.length,
+            totalPhotos,
+          })
+        })
+        uploadedBytes += listingBytes
         uploadedByDraftId.set(draft.id, uploadedImages)
         uploadedPaths.push(...uploadedImages.map((image) => image.path))
+      }
+
+      if (draftsWithImages.length) {
+        setUploadProgress((current) => current ? { ...current, uploadedBytes: current.totalBytes } : current)
       }
 
       setUploadingImages(false)
@@ -454,6 +517,7 @@ export default function ManageAdsPanel({
       await cleanupUploadedFiles(uploadedPaths)
       setMessage((error as Error).message || 'Failed to create listings.')
     } finally {
+      setUploadProgress(null)
       setUploadingImages(false)
       setSaving(false)
     }
@@ -654,6 +718,21 @@ export default function ManageAdsPanel({
                     Add one or more vehicles, attach photos to each listing, then create them in one submission.
                   </p>
                 </div>
+
+                {uploadProgress && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4" role="status" aria-live="polite">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-800">
+                      <span>{uploadingImages ? 'Uploading photos' : 'Photos uploaded - creating listings'}</span>
+                      <span>{uploadProgressPercent}%</span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Listing {uploadProgress.currentListing} of {uploadProgress.totalListings} - {uploadProgress.currentPhotoCount} photos in this listing - {uploadProgress.totalPhotos} photos total
+                    </p>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100" aria-hidden="true">
+                      <div className="h-full rounded-full bg-amber-500 transition-[width] duration-200" style={{ width: uploadProgressPercent.toString() + '%' }} />
+                    </div>
+                  </div>
+                )}
 
                 {drafts.map((draft, index) => (
                   <div key={draft.id} className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">

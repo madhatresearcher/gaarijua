@@ -1,63 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '../../../auth'
+import { createR2UploadUrl, hasR2UploadCredentials } from '../../../lib/r2-upload'
 import { getR2Bucket, hasR2Env, r2PublicUrl } from '../../../lib/r2'
 
 export const dynamic = 'force-dynamic'
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024
-const ALLOWED_IMAGE_MIME: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-  'image/heic': 'heic',
-  'image/heif': 'heif',
+const ALLOWED_IMAGE_MIME: Record<string, { extension: string; contentType: string }> = {
+  'image/jpeg': { extension: 'jpg', contentType: 'image/jpeg' },
+  'image/jpg': { extension: 'jpg', contentType: 'image/jpeg' },
+  'image/png': { extension: 'png', contentType: 'image/png' },
+  'image/webp': { extension: 'webp', contentType: 'image/webp' },
+  'image/avif': { extension: 'avif', contentType: 'image/avif' },
+  'image/heic': { extension: 'heic', contentType: 'image/heic' },
+  'image/heif': { extension: 'heif', contentType: 'image/heif' },
 }
-const ALLOWED_IMAGE_EXTENSIONS = new Set(Object.values(ALLOWED_IMAGE_MIME))
-
-type UploadMetadata = { name: string; type: string }
-
-function getSupportedImageExtension(file: UploadMetadata) {
-  const mimeExtension = ALLOWED_IMAGE_MIME[file.type.toLowerCase()]
-  if (mimeExtension) return mimeExtension
-
-  const filenameExtension = file.name.split('.').pop()?.toLowerCase()
-  if (filenameExtension && ALLOWED_IMAGE_EXTENSIONS.has(filenameExtension)) return filenameExtension
-  return null
+const ALLOWED_IMAGE_EXTENSIONS: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  heif: 'image/heif',
 }
 
-function getUploadMetadata(request: NextRequest): UploadMetadata | null {
-  const encodedName = request.headers.get('x-listing-image-name')
-  if (!encodedName) return null
+type UploadMetadata = { name: string; type: string; size: number }
 
-  try {
-    const name = decodeURIComponent(encodedName)
-    if (!name || name.length > 255) return null
-    return { name, type: request.headers.get('content-type')?.split(';', 1)[0].toLowerCase() || '' }
-  } catch {
-    return null
-  }
+type SupportedImage = { extension: string; contentType: string }
+
+function getSupportedImage(file: UploadMetadata): SupportedImage | null {
+  const byMime = ALLOWED_IMAGE_MIME[file.type.toLowerCase()]
+  if (byMime) return byMime
+
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  const contentType = extension ? ALLOWED_IMAGE_EXTENSIONS[extension] : undefined
+  return extension && contentType ? { extension, contentType } : null
 }
 
-function limitUploadStream(stream: ReadableStream<Uint8Array>) {
-  let uploadedBytes = 0
-  return stream.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        uploadedBytes += chunk.byteLength
-        if (uploadedBytes > MAX_FILE_SIZE_BYTES) {
-          controller.error(new Error('Photo exceeds the 15MB size limit.'))
-          return
-        }
-        controller.enqueue(chunk)
-      },
-    })
-  )
+async function getUploadMetadata(request: NextRequest): Promise<UploadMetadata | null> {
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body.name !== 'string' || typeof body.type !== 'string' || typeof body.size !== 'number') return null
+
+  const name = body.name.trim()
+  if (!name || name.length > 255 || !Number.isFinite(body.size) || body.size <= 0) return null
+  return { name, type: body.type.split(';', 1)[0].toLowerCase(), size: body.size }
 }
 
-async function requireUser() {
-  if (!hasR2Env()) {
+async function requireUser(needsUploadCredentials = false) {
+  if (needsUploadCredentials ? !hasR2UploadCredentials() : !hasR2Env()) {
     return { userId: null, error: 'Image uploads are not configured on this deployment yet.', status: 500 as const }
   }
   const session = await auth()
@@ -68,41 +59,34 @@ async function requireUser() {
 }
 
 export async function POST(request: NextRequest) {
-  const { userId, error: authError, status } = await requireUser()
+  const { userId, error: authError, status } = await requireUser(true)
   if (!userId) return NextResponse.json({ error: authError }, { status })
 
-  const metadata = getUploadMetadata(request)
-  if (!metadata || !request.body) {
-    return NextResponse.json({ error: 'Select one image to upload.' }, { status: 400 })
-  }
-
-  const extension = getSupportedImageExtension(metadata)
-  if (!extension) {
-    return NextResponse.json({ error: metadata.name + ': unsupported format. Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF.' }, { status: 400 })
-  }
-
-  const declaredSize = Number(request.headers.get('content-length'))
-  if (Number.isFinite(declaredSize) && declaredSize > MAX_FILE_SIZE_BYTES) {
+  const metadata = await getUploadMetadata(request)
+  if (!metadata) return NextResponse.json({ error: 'Select one image to upload.' }, { status: 400 })
+  if (metadata.size > MAX_FILE_SIZE_BYTES) {
     return NextResponse.json({ error: metadata.name + ': exceeds 15MB size limit.' }, { status: 400 })
   }
 
-  const bucket = getR2Bucket()
-  if (!bucket) {
-    return NextResponse.json({ error: 'Image uploads are not configured on this deployment yet.' }, { status: 500 })
+  const image = getSupportedImage(metadata)
+  if (!image) {
+    return NextResponse.json({ error: metadata.name + ': unsupported format. Use JPG, PNG, WEBP, AVIF, HEIC, or HEIF.' }, { status: 400 })
   }
 
-  const key = 'cars/' + userId + '/' + crypto.randomUUID() + '.' + extension
+  const key = 'cars/' + userId + '/' + crypto.randomUUID() + '.' + image.extension
   try {
-    await bucket.put(key, limitUploadStream(request.body), {
-      httpMetadata: {
-        contentType: metadata.type || 'image/' + extension,
-        cacheControl: 'public, max-age=31536000, immutable',
+    const uploadUrl = await createR2UploadUrl({ key, contentType: image.contentType })
+    return NextResponse.json({
+      image: {
+        path: key,
+        publicUrl: r2PublicUrl(key),
+        uploadUrl,
+        contentType: image.contentType,
       },
     })
-    return NextResponse.json({ image: { path: key, publicUrl: r2PublicUrl(key) } })
   } catch (error) {
-    await bucket.delete(key).catch(() => undefined)
-    return NextResponse.json({ error: (error as Error).message || 'Failed to upload photo.' }, { status: 400 })
+    console.error('Failed to create listing-image upload URL', error)
+    return NextResponse.json({ error: 'Failed to prepare photo upload. Please retry.' }, { status: 500 })
   }
 }
 

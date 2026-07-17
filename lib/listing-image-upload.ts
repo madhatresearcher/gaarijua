@@ -3,33 +3,57 @@ export type UploadedListingImage = {
   publicUrl: string
 }
 
+type PreparedListingImage = UploadedListingImage & {
+  uploadUrl: string
+  contentType: string
+}
+
 const MAX_CONCURRENT_UPLOADS = 2
 
-function uploadSingleImage(
+async function prepareListingImage(file: File): Promise<PreparedListingImage> {
+  const response = await fetch('/api/listing-images', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+  })
+  const body = (await response.json().catch(() => null)) as { image?: PreparedListingImage; error?: string } | null
+  if (!response.ok || !body?.image) {
+    throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to prepare upload for ' + file.name + '.')
+  }
+  return body.image
+}
+
+function uploadToR2(
   file: File,
+  image: PreparedListingImage,
   onProgress: (loaded: number) => void
 ): Promise<UploadedListingImage> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
-    request.open('POST', '/api/listing-images')
-    request.responseType = 'json'
-    request.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-    request.setRequestHeader('X-Listing-Image-Name', encodeURIComponent(file.name))
+    request.open('PUT', image.uploadUrl)
+    request.setRequestHeader('Content-Type', image.contentType)
     request.upload.addEventListener('progress', (event) => {
       onProgress(event.lengthComputable ? event.loaded : Math.min(file.size, event.loaded))
     })
     request.addEventListener('error', () => reject(new Error('Failed to upload ' + file.name + '.')))
     request.addEventListener('load', () => {
-      const body = request.response as { image?: UploadedListingImage; error?: string } | null
-      if (request.status < 200 || request.status >= 300 || !body?.image) {
-        reject(new Error(typeof body?.error === 'string' ? body.error : 'Failed to upload ' + file.name + '.'))
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error('Failed to upload ' + file.name + '.'))
         return
       }
       onProgress(file.size)
-      resolve(body.image)
+      resolve({ path: image.path, publicUrl: image.publicUrl })
     })
     request.send(file)
   })
+}
+
+async function uploadSingleImage(
+  file: File,
+  onProgress: (loaded: number) => void
+): Promise<UploadedListingImage> {
+  const image = await prepareListingImage(file)
+  return uploadToR2(file, image, onProgress)
 }
 
 export async function uploadListingImages(

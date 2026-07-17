@@ -143,7 +143,7 @@ function getDraftValidationError(draft: ListingDraft) {
   return null
 }
 
-export default function ManageAdsPanel() {
+export default function ManageAdsPanel({ initiallyShowCreateForm = false }: { initiallyShowCreateForm?: boolean }) {
   const { user } = useUser()
   const draftSequenceRef = useRef(2)
   const previewUrlsRef = useRef<Map<string, string[]>>(new Map())
@@ -154,7 +154,7 @@ export default function ManageAdsPanel() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [updates, setUpdates] = useState<Record<string, Partial<EditableListing> & { price?: string }>>({})
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showCreateForm, setShowCreateForm] = useState(initiallyShowCreateForm)
   const [uploadingImages, setUploadingImages] = useState(false)
   const [listingPhotoUploadId, setListingPhotoUploadId] = useState<string | null>(null)
   const [deletingListingId, setDeletingListingId] = useState<string | null>(null)

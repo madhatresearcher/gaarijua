@@ -197,7 +197,7 @@ export default function HostDashboard({
             <button type="button" onClick={() => changeScope('open')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${scope === 'open' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Live & drafts</button>
             <button type="button" onClick={() => changeScope('closed')} className={`rounded-lg px-4 py-2 text-sm font-semibold ${scope === 'closed' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Archived</button>
           </div>
-          <a href="/host/create" className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300">Create listing</a>
+          <div className="flex flex-wrap gap-2"><a href="/host/bulk" className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300">Create multiple listings</a><a href="/host/create" className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">Create one listing</a></div>
         </div>
 
         <section aria-busy={loadingPage} className="grid gap-4 md:grid-cols-2">

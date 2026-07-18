@@ -63,6 +63,7 @@ export default function HostDashboard({
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [showBatchCreator, setShowBatchCreator] = useState(false)
+  const managerOpen = detail !== null
 
   const loadPage = useCallback(async (nextScope: 'open' | 'closed', cursor?: string | null, append = false) => {
     setLoadingPage(true)
@@ -187,6 +188,25 @@ export default function HostDashboard({
     const timer = window.setTimeout(() => setMessage(null), 4000)
     return () => window.clearTimeout(timer)
   }, [message])
+
+  useEffect(() => {
+    if (!managerOpen) return
+
+    const previousBodyOverflow = document.body.style.overflow
+    const previousBodyPaddingRight = document.body.style.paddingRight
+    const previousDocumentOverflow = document.documentElement.style.overflow
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.body.style.paddingRight = previousBodyPaddingRight
+      document.documentElement.style.overflow = previousDocumentOverflow
+    }
+  }, [managerOpen])
 
   return (
     <div className="min-h-screen bg-slate-50">

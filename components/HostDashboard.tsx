@@ -26,6 +26,15 @@ function formatPrice(value: number | null) {
   return value === null ? 'Price on request' : `UGX ${Math.round(value).toLocaleString()}`
 }
 
+function formatPriceInput(value: number | null) {
+  return value === null ? '' : Math.round(value).toLocaleString('en-US')
+}
+
+function parsePriceInput(value: string) {
+  const digits = value.replace(/\D/g, '')
+  return digits ? Number(digits) : null
+}
+
 function listingPrice(listing: HostListingSummary) {
   return formatPrice(listing.is_for_rent ? listing.price_per_day : listing.price_buy)
 }
@@ -246,12 +255,69 @@ export default function HostDashboard({
       </div>
 
       {detail && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label={`Manage ${detail.title}`}>
-          <div className="mx-auto my-8 max-w-4xl rounded-3xl bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Listing manager</p><h2 className="text-2xl font-bold text-slate-900">{detail.title}</h2></div><button type="button" onClick={() => setDetail(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600">Close</button></div>
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <section><div className="flex items-center justify-between gap-3"><h3 className="font-bold text-slate-900">Photos ({detail.images.length}/{MAX_IMAGES})</h3><label className="cursor-pointer rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white">{uploading ? 'Uploading…' : 'Add photos'}<input type="file" className="sr-only" multiple accept="image/*,.avif,.heic,.heif" disabled={uploading || saving} onChange={(event) => void uploadPhotos(event)} /></label></div><p className="mt-2 text-sm text-slate-500">The first photo is used as the card cover. Choose “Set cover” to reorder it.</p><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">{detail.images.map((image, imageIndex) => <div key={image} className="overflow-hidden rounded-2xl border border-slate-200"><img src={listingImageUrl(image, 'thumb') || image} alt={`${detail.title} photo ${imageIndex + 1}`} width={256} height={256} loading="lazy" decoding="async" className="aspect-square w-full object-cover" /><div className="grid grid-cols-2 gap-1 p-2"><button type="button" disabled={saving || imageIndex === 0} onClick={() => void saveDetail({ images: [image, ...detail.images.filter((current) => current !== image)] })} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-700 disabled:opacity-40">Set cover</button><button type="button" disabled={saving} onClick={() => void saveDetail({ images: detail.images.filter((current) => current !== image) })} className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-bold text-rose-700">Remove</button></div></div>)}</div></section>
-              <section className="space-y-4"><label className="block text-sm font-bold text-slate-700">Status<select value={detail.status} onChange={(event) => setDetail({ ...detail, status: event.target.value as ListingStatus })} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"><option value="active">Active</option><option value="draft">Draft</option><option value="closed">Closed</option></select></label><label className="block text-sm font-bold text-slate-700">Price (UGX)<input type="number" inputMode="numeric" value={detail.is_for_rent ? detail.price_per_day ?? '' : detail.price_buy ?? ''} onChange={(event) => { const value = event.target.value ? Number(event.target.value) : null; setDetail(detail.is_for_rent ? { ...detail, price_per_day: value } : { ...detail, price_buy: value }) }} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" /></label><label className="block text-sm font-bold text-slate-700">Description<textarea rows={6} value={detail.description || ''} onChange={(event) => setDetail({ ...detail, description: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" /></label><button type="button" disabled={saving} onClick={() => void saveDetail({ status: detail.status, price: detail.is_for_rent ? detail.price_per_day : detail.price_buy, description: detail.description })} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-300 disabled:opacity-60">{saving ? 'Saving…' : 'Save listing changes'}</button></section>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={'Manage ' + detail.title}>
+          <div className="flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex flex-none items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Listing manager</p>
+                <h2 className="mt-1 truncate text-xl font-bold text-slate-950 sm:text-2xl">{detail.title}</h2>
+              </div>
+              <button type="button" onClick={() => setDetail(null)} className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-300">Close</button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)] lg:overflow-hidden">
+              <section className="border-b border-slate-200 p-4 sm:p-6 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-950">Photos</h3>
+                    <p className="mt-1 text-sm text-slate-500">{detail.images.length} of {MAX_IMAGES} photos ? The first photo is your cover.</p>
+                  </div>
+                  <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-bold text-white shadow-sm hover:bg-slate-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-sky-300">
+                    {uploading ? 'Uploading?' : 'Add photos'}
+                    <input type="file" className="sr-only" multiple accept="image/*,.avif,.heic,.heif" disabled={uploading || saving} onChange={(event) => void uploadPhotos(event)} />
+                  </label>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <label className="flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-5 text-center text-slate-800 transition hover:border-amber-400 hover:bg-amber-50 focus-within:outline-none focus-within:ring-2 focus-within:ring-sky-300">
+                    <svg className="h-8 w-8 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" /></svg>
+                    <span className="mt-3 text-sm font-bold">{uploading ? 'Uploading photos?' : 'Add photos'}</span>
+                    <span className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP, AVIF, HEIC or HEIF</span>
+                    <input type="file" className="sr-only" multiple accept="image/*,.avif,.heic,.heif" disabled={uploading || saving} onChange={(event) => void uploadPhotos(event)} />
+                  </label>
+
+                  {detail.images.map((image, imageIndex) => (
+                    <article key={image} className={['overflow-hidden rounded-xl border bg-white shadow-sm', imageIndex === 0 ? 'border-amber-400 ring-2 ring-amber-200' : 'border-slate-200'].join(' ')}>
+                      <div className="relative aspect-[4/3] bg-slate-100">
+                        <img src={listingImageUrl(image, 'thumb') || image} alt={detail.title + ' photo ' + (imageIndex + 1)} width={384} height={288} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                        {imageIndex === 0 && <span className="absolute left-3 top-3 rounded-full bg-amber-400 px-3 py-1 text-xs font-extrabold text-slate-950 shadow-sm">Cover</span>}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 p-3">
+                        <button type="button" disabled={saving || imageIndex === 0} onClick={() => void saveDetail({ images: [image, ...detail.images.filter((current) => current !== image)] })} className="h-11 rounded-lg border border-slate-300 px-2 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:border-amber-200 disabled:bg-amber-50 disabled:text-amber-800 disabled:opacity-100">{imageIndex === 0 ? 'Current Cover' : 'Set Cover'}</button>
+                        <button type="button" disabled={saving} onClick={() => void saveDetail({ images: detail.images.filter((current) => current !== image) })} className="h-11 rounded-lg border border-rose-200 px-2 text-sm font-bold text-rose-700 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-60">Remove</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="flex min-h-0 flex-col bg-slate-50 lg:overflow-y-auto">
+                <div className="space-y-5 p-5 sm:p-6">
+                  <label className="block text-sm font-bold text-slate-800">Price (UGX)<input type="text" inputMode="numeric" value={formatPriceInput(detail.is_for_rent ? detail.price_per_day : detail.price_buy)} onChange={(event) => { const value = parsePriceInput(event.target.value); setDetail(detail.is_for_rent ? { ...detail, price_per_day: value } : { ...detail, price_buy: value }) }} className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base font-semibold text-slate-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300" /></label>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-800">Description<textarea rows={7} value={detail.description || ''} onChange={(event) => setDetail({ ...detail, description: event.target.value })} className="mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300" /></label>
+                    <p className="mt-2 text-sm leading-5 text-slate-500">Include condition, key features, location, and anything a buyer should know.</p>
+                  </div>
+
+                  <label className="block text-sm font-bold text-slate-800">Status<select value={detail.status} onChange={(event) => setDetail({ ...detail, status: event.target.value as ListingStatus })} className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300"><option value="active">Active</option><option value="draft">Draft</option><option value="closed">Closed</option></select></label>
+                </div>
+
+                <div className="sticky bottom-0 mt-auto flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end sm:px-6">
+                  <button type="button" onClick={() => setDetail(null)} className="h-12 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-300">Cancel</button>
+                  <button type="button" disabled={saving} onClick={() => void saveDetail({ status: detail.status, price: detail.is_for_rent ? detail.price_per_day : detail.price_buy, description: detail.description })} className="h-12 rounded-xl bg-amber-400 px-5 text-sm font-bold text-slate-950 shadow-sm hover:bg-amber-300 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:opacity-60">{saving ? 'Saving?' : 'Save listing changes'}</button>
+                </div>
+              </section>
             </div>
           </div>
         </div>

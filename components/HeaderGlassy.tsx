@@ -65,7 +65,7 @@ export default function HeaderGlassy() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/" aria-label="Gaarijua home" className="font-extrabold text-lg md:text-xl text-slate-900">
+            <Link prefetch={false} href="/" aria-label="Gaarijua home" className="font-extrabold text-lg md:text-xl text-slate-900">
               Gaarijua
             </Link>
             <span className="hidden md:inline-block text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-800">
@@ -126,6 +126,7 @@ export default function HeaderGlassy() {
             <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
               <Link
                 href="/cars"
+                prefetch={false}
                 className={`px-2 text-slate-700 focus:ring-2 focus:ring-sky-300 focus:outline-none ${
                   scrolled ? 'text-slate-900/90' : 'text-slate-900'
                 }`}
@@ -134,6 +135,7 @@ export default function HeaderGlassy() {
               </Link>
               <Link
                 href="/parts"
+                prefetch={false}
                 className={`px-2 text-slate-700 focus:ring-2 focus:ring-sky-300 focus:outline-none ${
                   scrolled ? 'text-slate-900/90' : 'text-slate-900'
                 }`}
@@ -161,6 +163,7 @@ export default function HeaderGlassy() {
                   <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-slate-200 bg-white/95 p-3 text-sm shadow-2xl shadow-slate-900/20">
                     <Link
                       href="/host"
+                      prefetch={false}
                       className="block rounded-xl px-3 py-2 font-semibold text-slate-900 hover:bg-slate-100"
                       onClick={() => setAccountMenuOpen(false)}
                     >
@@ -197,6 +200,7 @@ export default function HeaderGlassy() {
             ) : (
               <Link
                 href="/auth/sign-in"
+                prefetch={false}
                 className="rounded-full bg-slate-900 px-4 py-1 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-300"
               >
                 Sign in

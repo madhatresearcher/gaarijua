@@ -44,6 +44,7 @@ type HostListingRow = {
   createdAt: Date
   coverImage: string | null
   imageCount: number | string
+  total: number | string
 }
 
 const hostListingFields = {
@@ -60,6 +61,7 @@ const hostListingFields = {
   createdAt: cars.createdAt,
   coverImage: sql<string | null>`${cars.images}[1]`,
   imageCount: sql<number>`coalesce(cardinality(${cars.images}), 0)`,
+  total: sql<number>`count(*) over()`,
 }
 
 function decodeCursor(cursor: string | null | undefined): Cursor | null {
@@ -125,7 +127,6 @@ export async function getHostListingPage(
     ? and(eq(cars.ownerId, ownerId), statusCondition, cursorCondition)
     : and(eq(cars.ownerId, ownerId), statusCondition)
   const baseWhere = and(eq(cars.ownerId, ownerId), statusCondition)
-
   const [rows, countRows] = await Promise.all([
     db
       .select(hostListingFields)
@@ -133,14 +134,14 @@ export async function getHostListingPage(
       .where(where)
       .orderBy(desc(cars.createdAt), desc(cars.id))
       .limit(pageSize + 1),
-    db.select({ total: count() }).from(cars).where(baseWhere),
+    cursor ? db.select({ total: count() }).from(cars).where(baseWhere) : Promise.resolve(null),
   ])
 
   const summaries = rows.slice(0, pageSize).map((row) => toSummary(row))
   return {
     listings: summaries,
     nextCursor: rows.length > pageSize ? encodeCursor(summaries[summaries.length - 1]) : null,
-    total: Number(countRows[0]?.total ?? 0),
+    total: cursor ? Number(countRows?.[0]?.total ?? 0) : Number(rows[0]?.total ?? 0),
   }
 }
 

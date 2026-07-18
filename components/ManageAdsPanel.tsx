@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '../hooks/useUser'
-import { uploadListingImages, type UploadedListingImage } from '../lib/listing-image-upload'
 
 type ListingType = 'rent' | 'buy'
 type ListingStatus = 'active' | 'closed' | 'draft'
@@ -41,7 +40,10 @@ type EditableListing = {
   images: string[]
 }
 
-type UploadedImage = UploadedListingImage
+type UploadedImage = {
+  path: string
+  publicUrl: string
+}
 
 type UploadProgress = {
   uploadedBytes: number
@@ -218,6 +220,34 @@ export default function ManageAdsPanel({
     }
   }
 
+  const uploadFilesToStorage = (
+    files: File[],
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<UploadedImage[]> => {
+    if (!files.length) return Promise.resolve([])
+
+    const formData = new FormData()
+    files.forEach((file) => formData.append('files', file))
+
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest()
+      request.open('POST', '/api/listing-images')
+      request.responseType = 'json'
+      request.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded, event.total)
+      })
+      request.addEventListener('error', () => reject(new Error('Failed to upload photos.')))
+      request.addEventListener('load', () => {
+        const body = request.response as { images?: UploadedImage[]; error?: string } | null
+        if (request.status < 200 || request.status >= 300) {
+          reject(new Error(typeof body?.error === 'string' ? body.error : 'Failed to upload photos.'))
+          return
+        }
+        resolve(Array.isArray(body?.images) ? body.images : [])
+      })
+      request.send(formData)
+    })
+  }
   const fetchAds = useCallback(async () => {
     if (!user) return
     setLoading(true)
@@ -426,7 +456,7 @@ export default function ManageAdsPanel({
           currentPhotoCount: draft.files.length,
           totalPhotos,
         })
-        const uploadedImages = await uploadListingImages(draft.files, (loaded) => {
+        const uploadedImages = await uploadFilesToStorage(draft.files, (loaded) => {
           setUploadProgress({
             uploadedBytes: Math.min(totalUploadBytes, uploadedBytes + Math.min(loaded, listingBytes)),
             totalBytes: Math.max(totalUploadBytes, 1),
@@ -576,7 +606,7 @@ export default function ManageAdsPanel({
     setListingPhotoUploadId(listing.id)
     let uploadedImages: UploadedImage[] = []
     try {
-      uploadedImages = await uploadListingImages(files)
+      uploadedImages = await uploadFilesToStorage(files)
       const saved = await persistListingImages(listing.id, [
         ...listing.images,
         ...uploadedImages.map((image) => image.publicUrl),

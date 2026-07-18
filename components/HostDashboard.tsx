@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
 import type { HostListingSummary } from '../lib/host-listings'
 import { listingImageUrl } from '../lib/listing-image-url'
-import { uploadListingImages } from '../lib/listing-image-upload'
 
 const ManageAdsPanel = dynamic(() => import('./ManageAdsPanel'), {
   ssr: false,
@@ -141,13 +140,21 @@ export default function HostDashboard({
 
     setUploading(true)
     try {
-      const uploadedImages = await uploadListingImages(files)
-      const saved = await saveDetail({ images: [...detail.images, ...uploadedImages.map((image) => image.publicUrl)] })
+      const formData = new FormData()
+      files.forEach((file) => formData.append('files', file))
+      const response = await fetch('/api/listing-images', { method: 'POST', body: formData })
+      const body = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(body?.images)) {
+        setMessage(typeof body?.error === 'string' ? body.error : 'Could not upload photos.')
+        return
+      }
+      const uploaded = body.images.map((image: { publicUrl: string }) => image.publicUrl)
+      const saved = await saveDetail({ images: [...detail.images, ...uploaded] })
       if (!saved) {
         await fetch('/api/listing-images', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paths: uploadedImages.map((image) => image.path) }),
+          body: JSON.stringify({ paths: body.images.map((image: { path: string }) => image.path) }),
         })
       }
     } finally {

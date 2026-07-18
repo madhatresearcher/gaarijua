@@ -4,8 +4,9 @@ import { getR2Bucket, hasR2Env, r2PublicUrl } from '../../../lib/r2'
 
 export const dynamic = 'force-dynamic'
 
-const MAX_UPLOAD_FILES = 15
+const MAX_UPLOAD_FILES = 1
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024
+const MAX_MULTIPART_OVERHEAD_BYTES = 128 * 1024
 const ALLOWED_IMAGE_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authError }, { status })
   }
 
+  const declaredRequestSize = Number(request.headers.get('content-length'))
+  if (Number.isFinite(declaredRequestSize) && declaredRequestSize > MAX_FILE_SIZE_BYTES + MAX_MULTIPART_OVERHEAD_BYTES) {
+    return NextResponse.json(
+      { error: 'Upload one photo at a time. Each photo must be 15MB or smaller.' },
+      { status: 413 }
+    )
+  }
   const formData = await request.formData()
   const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File)
 
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Select at least one image to upload.' }, { status: 400 })
   }
   if (files.length > MAX_UPLOAD_FILES) {
-    return NextResponse.json({ error: `You can upload up to ${MAX_UPLOAD_FILES} images per listing.` }, { status: 400 })
+    return NextResponse.json({ error: `Upload one photo at a time.` }, { status: 400 })
   }
 
   const bucket = getR2Bucket()

@@ -39,7 +39,15 @@ export async function GET(
 
   const preset = VARIANTS[variant]
   const source = r2PublicUrl(key)
-  const response = await fetch(source, {
+
+  // Temporary Workers.dev delivery path. Re-verify this transform after the
+  // final custom domain is attached before treating image delivery as final.
+  const sourceRequest = new Request(source, {
+    headers: {
+      Accept: request.headers.get('accept') || 'image/avif,image/webp,image/*,*/*;q=0.8',
+    },
+  })
+  const response = await fetch(sourceRequest, {
     cf: {
       image: {
         fit: 'cover',
